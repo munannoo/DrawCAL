@@ -7,6 +7,5 @@ Makefile
 *.exe
 *.dll
 *.out
-.vscode/
 .DS_Store
 Thumbs.db
