@@ -14,6 +14,10 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(raylib)
 
-add_executable(drawcal_app src/main.cpp)
+file(GLOB_RECURSE SOURCES "src/*.cpp")
+
+add_executable(drawcal_app ${SOURCES})
+
+target_include_directories(drawcal_app PRIVATE src/)
 
 target_link_libraries(drawcal_app raylib)
