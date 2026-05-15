@@ -17,7 +17,8 @@ void UpdateCameraController(Camera3D &camera)
 
     if (IsKeyPressed(KEY_Z))
         camera.target = { 0.0f, 0.0f, 0.0f };
-}
+    }
+    
 
 void DrawCameraScene(const Camera3D &camera)
 {
@@ -26,7 +27,8 @@ void DrawCameraScene(const Camera3D &camera)
     BeginMode3D(camera);
         DrawCube(cubePosition, 2.0f, 2.0f, 2.0f, RED);
         DrawCubeWires(cubePosition, 2.0f, 2.0f, 2.0f, MAROON);
-        DrawGrid(10, 1.0f);
+        
+        DrawGrid(100, 1.0f);
     EndMode3D();
 
     // Overlay UI

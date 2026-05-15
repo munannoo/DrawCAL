@@ -4,17 +4,20 @@
 int main()
 {
     // Window initialization
-    InitWindow(800, 600, "Camera Controller Example");
+    InitWindow(1920, 1080, "DrawCAL");
     SetTargetFPS(60);
 
     // Camera setup
     Camera3D camera;
     InitCamera(camera);
-
+                             
     // Main loop
     while (!WindowShouldClose())
     {
-        // Update camera logic
+        if(IsKeyPressed(KEY_F11)){
+            ToggleFullscreen();
+            
+        }
         UpdateCameraController(camera);
 
         // Draw everything
