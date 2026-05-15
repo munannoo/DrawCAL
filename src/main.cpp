@@ -1,25 +1,26 @@
 #include "raylib.h"
+#include "features/camera/CameraController.h"
 
-int main() {
-    // 1. Get the current monitor index (usually 0)
-    const int monitor = GetCurrentMonitor();
-
-    // 2. Fetch the monitor's native dimensions
-    const int screenWidth = GetMonitorWidth(monitor);
-    const int screenHeight = GetMonitorHeight(monitor);
-
-    // 3. Initialize window with these dimensions
-    InitWindow(screenWidth, screenHeight, "C++ Raylib Fullscreen");
-
-    // Optional: Make it borderless/fullscreen immediately
-    ToggleFullscreen();
-
+int main()
+{
+    // Window initialization
+    InitWindow(800, 600, "Camera Controller Example");
     SetTargetFPS(60);
 
-    while (!WindowShouldClose()) {
+    // Camera setup
+    Camera3D camera;
+    InitCamera(camera);
+
+    // Main loop
+    while (!WindowShouldClose())
+    {
+        // Update camera logic
+        UpdateCameraController(camera);
+
+        // Draw everything
         BeginDrawing();
             ClearBackground(RAYWHITE);
-            DrawText("Running at Native Resolution", 20, 20, 20, DARKGRAY);
+            DrawCameraScene(camera);
         EndDrawing();
     }
 
