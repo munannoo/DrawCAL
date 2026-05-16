@@ -1,6 +1,7 @@
 #include "raylib.h"
 #include "features/camera/CameraController.h"
-
+#include "rendering/renderer.h"
+#include "input/InputHandler.h"
 int main()
 {
     // Window initialization
@@ -15,9 +16,9 @@ int main()
     while (!WindowShouldClose())
     {
         if(IsKeyPressed(KEY_F11)){
-            ToggleFullscreen();
-            
+            ToggleFullscreen();   
         }
+        
         UpdateCameraController(camera);
 
         // Draw everything

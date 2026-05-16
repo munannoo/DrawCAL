@@ -1,5 +1,5 @@
 #include "CameraController.h"
-
+#include "rcamera.h"
 void InitCamera(Camera3D &camera)
 {
     camera.position = { 10.0f, 10.0f, 10.0f };
@@ -7,35 +7,29 @@ void InitCamera(Camera3D &camera)
     camera.up       = { 0.0f, 1.0f, 0.0f };
     camera.fovy     = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
-
-    DisableCursor(); // optional: limit cursor inside window
+    
 }
 
 void UpdateCameraController(Camera3D &camera)
 {
-    UpdateCamera(&camera, CAMERA_FREE);
+    float walkSpeed = 0.1f;
+    if (IsKeyDown(KEY_W)) CameraMoveForward(&camera, walkSpeed, false);
+    if (IsKeyDown(KEY_S)) CameraMoveForward(&camera, -walkSpeed, false);
+    if (IsKeyDown(KEY_A)) CameraMoveRight(&camera, -walkSpeed, false);
+    if (IsKeyDown(KEY_D)) CameraMoveRight(&camera, walkSpeed, false);
+    if (IsKeyDown(KEY_Q)) CameraMoveUp(&camera, walkSpeed);
+    if (IsKeyDown(KEY_E)) CameraMoveUp(&camera, -walkSpeed);
 
-    if (IsKeyPressed(KEY_Z))
+    if(IsMouseButtonDown(MOUSE_LEFT_BUTTON)){
+        Vector2 mousedis = GetMouseDelta();
+        float xangle = mousedis.x * -0.03f;
+        float yangle = mousedis.y * -0.03f;
+        UpdateCameraPro(&camera, Vector3{0.0f, 0.0f, 0.0f}, Vector3{xangle, yangle, 0.0f}, 0.0f);
+    }
+
+    if (IsKeyPressed(KEY_Z)){
         camera.target = { 0.0f, 0.0f, 0.0f };
     }
-    
 
-void DrawCameraScene(const Camera3D &camera)
-{
-    Vector3 cubePosition = { 0.0f, 0.0f, 0.0f };
-
-    BeginMode3D(camera);
-        DrawCube(cubePosition, 2.0f, 2.0f, 2.0f, RED);
-        DrawCubeWires(cubePosition, 2.0f, 2.0f, 2.0f, MAROON);
-        
-        DrawGrid(100, 1.0f);
-    EndMode3D();
-
-    // Overlay UI
-    DrawRectangle(10, 10, 320, 93, Fade(SKYBLUE, 0.5f));
-    DrawRectangleLines(10, 10, 320, 93, BLUE);
-    DrawText("Free camera default controls:", 20, 20, 10, BLACK);
-    DrawText("- Mouse Wheel to Zoom in-out", 40, 40, 10, DARKGRAY);
-    DrawText("- Mouse Wheel Pressed to Pan", 40, 60, 10, DARKGRAY);
-    DrawText("- Z to zoom to (0, 0, 0)", 40, 80, 10, DARKGRAY);
 }
+
