@@ -3,7 +3,8 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/build/_deps/raylib-src/src"
+                "${workspaceFolder}/build/_deps/raylib-src/src",
+                "${workspaceFolder}/build/_deps/raygui-src/src"
             ],
             "defines": [
                 "_DEBUG",

@@ -2,29 +2,36 @@
 #include "features/camera/CameraController.h"
 #include "rendering/renderer.h"
 #include "input/InputHandler.h"
+#include "ui/panels/toolbar.h"
+#include "ui/widgets/buttons.h"
 int main()
-{
-    // Window initialization
-    InitWindow(1920, 1080, "DrawCAL");
-    SetTargetFPS(60);
-
+{   
+    int currentResIndex = 2;
+    int lastResIndex = currentResIndex;
+    bool dropdownEditmode = false;
+    InitWindow(cr[currentResIndex].width, cr[currentResIndex].height, "DrawCAL"); 
+    SetTargetFPS(GetMonitorRefreshRate(GetCurrentMonitor()));
     // Camera setup
     Camera3D camera;
-    InitCamera(camera);
-                             
-    // Main loop
+    InitCamera(camera);             
+    // Main loop (Runs each frame until the window closes)
     while (!WindowShouldClose())
     {
         if(IsKeyPressed(KEY_F11)){
             ToggleFullscreen();   
         }
-        
+        if (currentResIndex != lastResIndex) {
+            SetWindowSize(cr[currentResIndex].width, cr[currentResIndex].height);
+            lastResIndex = currentResIndex;
+        }
         UpdateCameraController(camera);
-
-        // Draw everything
+        if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)){
+            rightclick();
+        }
         BeginDrawing();
             ClearBackground(RAYWHITE);
             DrawCameraScene(camera);
+        topbar(currentResIndex, dropdownEditmode);
         EndDrawing();
     }
 
