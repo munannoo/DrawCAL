@@ -9,6 +9,7 @@ int main()
     int currentResIndex = 2;
     int lastResIndex = currentResIndex;
     bool dropdownEditmode = false;
+    int r = 0;
     InitWindow(cr[currentResIndex].width, cr[currentResIndex].height, "DrawCAL"); 
     SetTargetFPS(GetMonitorRefreshRate(GetCurrentMonitor()));
     // Camera setup
@@ -26,7 +27,7 @@ int main()
         }
         UpdateCameraController(camera);
         if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)){
-            rightclick();
+            rightclick(r);
         }
         BeginDrawing();
             ClearBackground(RAYWHITE);
