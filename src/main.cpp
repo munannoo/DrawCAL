@@ -26,16 +26,16 @@ int main()
             lastResIndex = currentResIndex;
         }
         UpdateCameraController(camera);
-        if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)){
+        if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || r){
             rightclick(r);
         }
+        
         BeginDrawing();
             ClearBackground(RAYWHITE);
             DrawCameraScene(camera);
         topbar(currentResIndex, dropdownEditmode);
         EndDrawing();
     }
-
     CloseWindow();
     return 0;
 }
