@@ -14,7 +14,7 @@ void UpdateCameraController(Camera3D &camera)
 {   
     float deltaTime = GetFrameTime();
     float walkSpeed = 20.0f; 
-    float mouseSensitivity = 50.0f;
+    float mouseSensitivity = 100.0f;
     float moveStep = walkSpeed * deltaTime;
 
     if (IsKeyDown(KEY_W)) CameraMoveForward(&camera, moveStep, false);

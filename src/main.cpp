@@ -8,7 +8,7 @@
 int main()
 {   
     SetConfigFlags(FLAG_VSYNC_HINT);
-    int currentResIndex = 2;
+    int currentResIndex = 0;
     int lastResIndex = currentResIndex;
     bool dropdownEditmode = false;
     int r = 0;
