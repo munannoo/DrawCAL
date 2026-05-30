@@ -7,12 +7,13 @@
 
 int main()
 {   
+    SetConfigFlags(FLAG_VSYNC_HINT);
     int currentResIndex = 2;
     int lastResIndex = currentResIndex;
     bool dropdownEditmode = false;
     int r = 0;
     InitWindow(cr[currentResIndex].width, cr[currentResIndex].height, "DrawCAL"); 
-    SetTargetFPS(GetMonitorRefreshRate(GetCurrentMonitor()));
+    
     Camera3D camera;
     InitCamera(camera);             
     // Main loop (Runs each frame until the window closes)

@@ -11,19 +11,24 @@ void InitCamera(Camera3D &camera)
 }
 
 void UpdateCameraController(Camera3D &camera)
-{
-    float walkSpeed = 0.1f;
-    if (IsKeyDown(KEY_W)) CameraMoveForward(&camera, walkSpeed, false);
-    if (IsKeyDown(KEY_S)) CameraMoveForward(&camera, -walkSpeed, false);
-    if (IsKeyDown(KEY_A)) CameraMoveRight(&camera, -walkSpeed, false);
-    if (IsKeyDown(KEY_D)) CameraMoveRight(&camera, walkSpeed, false);
-    if (IsKeyDown(KEY_Q)) CameraMoveUp(&camera, walkSpeed);
-    if (IsKeyDown(KEY_E)) CameraMoveUp(&camera, -walkSpeed);
+{   
+    float deltaTime = GetFrameTime();
+    float walkSpeed = 20.0f; 
+    float mouseSensitivity = 50.0f;
+    float moveStep = walkSpeed * deltaTime;
 
-    if(IsMouseButtonDown(MOUSE_LEFT_BUTTON)){
+    if (IsKeyDown(KEY_W)) CameraMoveForward(&camera, moveStep, false);
+    if (IsKeyDown(KEY_S)) CameraMoveForward(&camera, -moveStep, false);
+    if (IsKeyDown(KEY_A)) CameraMoveRight(&camera, -moveStep, false);
+    if (IsKeyDown(KEY_D)) CameraMoveRight(&camera, moveStep, false);
+    if (IsKeyDown(KEY_Q)) CameraMoveUp(&camera, moveStep);
+    if (IsKeyDown(KEY_E)) CameraMoveUp(&camera, -moveStep);
+
+    if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)){
         Vector2 mousedis = GetMouseDelta();
-        float xangle = mousedis.x * -0.03f;
-        float yangle = mousedis.y * -0.03f;
+        float xangle = mousedis.x * -mouseSensitivity * deltaTime;
+        float yangle = mousedis.y * -mouseSensitivity * deltaTime;
+        
         UpdateCameraPro(&camera, Vector3{0.0f, 0.0f, 0.0f}, Vector3{xangle, yangle, 0.0f}, 0.0f);
     }
 
