@@ -9,4 +9,3 @@ Makefile
 *.out
 .DS_Store
 Thumbs.db
-.vscode/

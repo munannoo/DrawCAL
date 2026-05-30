@@ -3,6 +3,6 @@
 
 #include "raylib.h"
 
-void rightclick(int &r);
+void rightclick(int &r, Camera3D& camera);
 
 #endif // INPUT_HANDLER_H

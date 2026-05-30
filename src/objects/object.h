@@ -7,4 +7,7 @@
 void Cube(const Vector3 pos);
 void Sphere(const Vector3 pos);
 void Cylinder(const Vector3 pos);
+void FrameCube();
+void FrameSphere();
+void FrameCylinder();
 #endif // object_h

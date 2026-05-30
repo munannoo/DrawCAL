@@ -30,5 +30,4 @@ void UpdateCameraController(Camera3D &camera)
     if (IsKeyPressed(KEY_Z)){
         camera.target = { 0.0f, 0.0f, 0.0f };
     }
-
-}    // test commit 
+}
