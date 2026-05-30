@@ -8,8 +8,17 @@ typedef struct res {
     std::string name;   
 } res;
 
+// Add enum for readibility in value assigning
+enum ResolutionIndex {
+    RES_720p,
+    RES_900p,
+    RES_1080p,
+    RES_1440p,
+    RES_1600p
+};
+
 extern const res cr[5];
 
-void topbar(int &activeRes, bool &dropdownEditMode);
+void topBar(int &activeRes, bool &dropdownEditMode);
 
 #endif

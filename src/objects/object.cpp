@@ -6,36 +6,41 @@ static Vector3 cy[100];
 static int c = 0;
 static int s = 0;
 static int y = 0;
-void Cube(const Vector3 pos){
+
+void cube(const Vector3 pos){
     if(c<100){
         Cu[c] = pos;
         c++;
     }
 }
-void Sphere(const Vector3 pos){
+
+void sphere(const Vector3 pos){
     if(s<100){
         Sp[s] = pos;
         s++;
     }
-    
 }
-void Cylinder(const Vector3 pos){
+
+void cylinder(const Vector3 pos){
     if(y<100){
         cy[y] = pos;
         y++;
     }
 }
-void FrameCube(){
+
+void frameCube(){
     for(int i=0; i<c; i++){
         DrawCube(Cu[i], 2.0f, 2.0f, 2.0f, DARKGRAY);
     }
 }
-void FrameSphere(){
+
+void frameSphere(){
     for(int i=0; i<s; i++){
         DrawSphere(Sp[i], 2.0f, DARKGRAY);
     }
 }
-void FrameCylinder(){
+
+void frameCylinder(){
     for(int i=0; i<y; i++){
         DrawCylinder(cy[i], 1.0f, 1.0f, 2.0f, 16, DARKGRAY);
     }

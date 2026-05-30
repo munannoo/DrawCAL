@@ -3,6 +3,12 @@
 
 #include "raylib.h"
 
-void rightclick(int &r, Camera3D& camera);
+void contextMenu(bool& mouseButtonPressed, Camera3D& camera);
+
+enum {
+    STATE_BASE = 0, 
+    STATE_SHOW_MENU,
+    STATE_SHOW_SUBMENU,
+};
 
 #endif // INPUT_HANDLER_H

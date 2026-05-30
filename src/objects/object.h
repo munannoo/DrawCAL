@@ -4,10 +4,10 @@
 #include "raylib.h"
 
 
-void Cube(const Vector3 pos);
-void Sphere(const Vector3 pos);
-void Cylinder(const Vector3 pos);
-void FrameCube();
-void FrameSphere();
-void FrameCylinder();
+void cube(const Vector3 pos);
+void sphere(const Vector3 pos);
+void cylinder(const Vector3 pos);
+void frameCube();
+void frameSphere();
+void frameCylinder();
 #endif // object_h

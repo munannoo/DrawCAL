@@ -7,11 +7,13 @@
 
 int main()
 {   
-    SetConfigFlags(FLAG_VSYNC_HINT);
-    int currentResIndex = 2;
+    SetConfigFlags(FLAG_VSYNC_HINT); // Enable vsync
+    // Resolution settings determined inside toolbar.cpp
+    int currentResIndex = RES_1080p; // Used Enum from toolbar.h for readibility, better than just a 2
     int lastResIndex = currentResIndex;
     bool dropdownEditmode = false;
-    int r = 0;
+    bool mouseButtonPressed = false; 
+
     InitWindow(cr[currentResIndex].width, cr[currentResIndex].height, "DrawCAL"); 
     
     Camera3D camera;
@@ -19,22 +21,28 @@ int main()
     // Main loop (Runs each frame until the window closes)
     while (!WindowShouldClose())
     {
-        if(IsKeyPressed(KEY_F11)){
+
+        if(IsKeyPressed(KEY_F11)){ 
             ToggleFullscreen();
             ShowCursor();
         }
+
         if (currentResIndex != lastResIndex) {
             SetWindowSize(cr[currentResIndex].width, cr[currentResIndex].height);
             lastResIndex = currentResIndex;
         }
+
         UpdateCameraController(camera);
+
         BeginDrawing();
-            ClearBackground(RAYWHITE);
-            DrawCameraScene(camera);
-        topbar(currentResIndex, dropdownEditmode);
-        if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || r){
-            rightclick(r, camera);
+        ClearBackground(RAYWHITE);
+        DrawCameraScene(camera);
+        topBar(currentResIndex, dropdownEditmode);
+
+        if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || mouseButtonPressed){
+            contextMenu(mouseButtonPressed, camera); // under InputHandler.cpp
         }
+
         EndDrawing();
     }
     CloseWindow();

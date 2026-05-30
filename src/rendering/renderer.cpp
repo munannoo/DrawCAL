@@ -8,11 +8,11 @@ void DrawCameraScene(const Camera3D &camera)
     BeginMode3D(camera);
     if(!start){
         start = true;
-        Cube(cubePosition);
+        cube(cubePosition);
     }
     DrawGrid(100, 1.0f);
-    FrameCube();
-    FrameSphere();
-    FrameCylinder();
+    frameCube();
+    frameSphere();
+    frameCylinder();
     EndMode3D();
 }

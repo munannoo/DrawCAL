@@ -3,7 +3,7 @@
         {
             "label": "Configure CMake",
             "type": "shell",
-            "command": "cmake -S ${workspaceFolder} -B ${workspaceFolder}/build",
+            "command": "cmake -S . -B build",
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -12,7 +12,7 @@
         {
             "label": "Build DrawCAL",
             "type": "shell",
-            "command": "cmake --build ${workspaceFolder}/build",
+            "command": "cmake --build build",
             "group": {
                 "kind": "build",
                 "isDefault": true
