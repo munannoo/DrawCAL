@@ -9,7 +9,7 @@ int main()
 {   
     SetConfigFlags(FLAG_VSYNC_HINT); // Enable vsync
     // Resolution settings determined inside toolbar.cpp
-    int currentResIndex = RES_1080p; // Used Enum from toolbar.h for readibility, better than just a 2
+    int currentResIndex = RES_720p; // Used Enum from toolbar.h for readibility, better than just a 2
     int lastResIndex = currentResIndex;
     bool dropdownEditmode = false;
     bool mouseButtonPressed = false; 

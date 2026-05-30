@@ -11,7 +11,7 @@ const res cr[5] = {
 };
 
 void topBar(int &activeRes, bool &dropdownEditMode) {
-    res r = cr[RES_1080p]; 
+    res r = cr[RES_720p]; 
     const char* options = "720p (HD);900p (HD+);1080p (Full HD);1440p (Quad HD);1600p (WQXGA)";
     if (GuiDropdownBox(Rectangle{ 10, 5, 200, 30 }, options, &activeRes, dropdownEditMode)) {
         dropdownEditMode = !dropdownEditMode; 
