@@ -3,6 +3,9 @@
     #include  <raygui.h>
     #include <objects/object.h>
     #include <cstring>
+    #include <raylib.h>
+    extern Camera3D camera;
+    extern Model model;
     static Vector2 clickPos = { 0.0f, 0.0f };
     static Vector3 objPosn = { 0.0f, 0.0f, 0.0f };
     void contextMenu(bool& mouseButtonPressed,Camera3D& camera)

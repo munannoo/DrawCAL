@@ -8,6 +8,8 @@ typedef struct ObjectInstance {
     float rotationAngle;
     Vector3 scale;
     Color color;
+    bool isSelected;
 } ObjectInstance;
 
+BoundingBox GetTransformedBounds(BoundingBox baseBox, Vector3 pos, Vector3 scale);
 #endif // TRANSFORM_H

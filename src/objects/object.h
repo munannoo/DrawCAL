@@ -11,4 +11,5 @@ void frameCube();
 void frameSphere();
 void frameCylinder();
 void Unload();
+void leftclick(Ray ray);
 #endif // object_h

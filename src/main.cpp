@@ -5,6 +5,7 @@
 #include "ui/panels/toolbar.h"
 #include "ui/widgets/buttons.h"
 #include "objects/object.h"
+
 int main()
 {   
     SetConfigFlags(FLAG_VSYNC_HINT); // Enable vsync
@@ -22,12 +23,16 @@ int main()
     // Main loop (Runs each frame until the window closes)
     while (!WindowShouldClose())
     {
-
+        Ray ray = GetMouseRay(GetMousePosition(), camera);
+        
+        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
+            leftclick(ray);
+        }
         if(IsKeyPressed(KEY_F11)){ 
             ToggleFullscreen();
             ShowCursor();
         }
-
+        
         if (currentResIndex != lastResIndex) {
             SetWindowSize(cr[currentResIndex].width, cr[currentResIndex].height);
             lastResIndex = currentResIndex;
