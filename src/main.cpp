@@ -6,7 +6,7 @@
 #include "ui/panels/toolbar.h"
 #include "ui/widgets/buttons.h"
 #include "objects/object.h"
-
+#include "features/manipulation/Transform.h"
 
 int main()
 {   
@@ -19,15 +19,16 @@ int main()
     bool mouseButtonPressed = false; 
 
     InitWindow(cr[currentResIndex].width, cr[currentResIndex].height, "DrawCAL"); 
-    initModels(); // Initialize the models for the objects, only needs to be called once
+    initModels(); // Initialize the Models, only needs to be called once
+    InitTransformGizmo(); // Initialize the transform gizmo, only needs to be called once
     Camera3D camera;
     InitCamera(camera);             
     // Main loop (Runs each frame until the window closes)
     while (!WindowShouldClose())
     {
         Ray ray = GetMouseRay(GetMousePosition(), camera);
-        
-        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
+        bool usingGizmo = updateObjectTransformGizmo(camera);
+        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !usingGizmo){
             leftclick(ray);
         }
         if(IsKeyPressed(KEY_F11)){ 
@@ -40,7 +41,9 @@ int main()
             lastResIndex = currentResIndex;
         }
 
-        UpdateCameraController(camera);
+        if (!usingGizmo) {
+            UpdateCameraController(camera);
+        }
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
@@ -53,6 +56,7 @@ int main()
         
         EndDrawing();
     }
+    UnloadTransformGizmo();
     Unload();
     CloseWindow();
     return 0;

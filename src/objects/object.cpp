@@ -1,6 +1,10 @@
 #include "object.h"
 #include "features/manipulation/Transform.h"
+#include "raylib.h"
 #include <float.h>
+#include "raymath.h"
+#include "rlgl.h"
+
 static Model cubeModel;
 static Model sphereModel;
 static Model cylinderModel;
@@ -12,6 +16,9 @@ static BoundingBox Cylinderbounds;
 static ObjectInstance Cu[100];
 static ObjectInstance Sp[100];
 static ObjectInstance cy[100];
+
+// forward declaration to allow calls before definition
+static void DrawObjectModel(Model model, ObjectInstance obj, Color color);
 
 enum ObjectType { NONE, CUBE, SPHERE, CYLINDER };
 static ObjectType selectedType = NONE;
@@ -33,23 +40,21 @@ void initModels(){
 }
 
 
-void cube(const Vector3 pos){
-    
-    Cu[c].position = pos;
-    Cu[c].rotationAxis = Vector3{0.0f, 1.0f, 0.0f};
-    Cu[c].rotationAngle = 0.0f;
-    Cu[c].scale = Vector3{1.0f, 1.0f, 1.0f};
-    Cu[c].color = GRAY;
-    Cu[c].isSelected = false;
-    c++;
-    
+void cube(const Vector3 pos) {
+    if (c < 100) {
+        Cu[c].position = pos;
+        Cu[c].rotation = { 0.0f, 0.0f, 0.0f };
+        Cu[c].scale = { 1.0f, 1.0f, 1.0f };
+        Cu[c].color = GRAY;
+        Cu[c].isSelected = false;
+        c++;
+    }
 }
 
 void sphere(const Vector3 pos){
     if(s<100){
         Sp[s].position = pos;
-        Sp[s].rotationAxis = Vector3{0.0f, 1.0f, 0.0f};
-        Sp[s].rotationAngle = 0.0f;
+        Sp[s].rotation = Vector3{0.0f, 0.0f, 0.0f};
         Sp[s].scale = Vector3{1.0f, 1.0f, 1.0f};
         Sp[s].color = GRAY;
         Sp[s].isSelected = false;
@@ -60,8 +65,7 @@ void sphere(const Vector3 pos){
 void cylinder(const Vector3 pos){
     if(y<100){
         cy[y].position = pos;
-        cy[y].rotationAxis = Vector3{0.0f, 1.0f, 0.0f};
-        cy[y].rotationAngle = 0.0f;
+        cy[y].rotation = Vector3{0.0f, 0.0f, 0.0f};
         cy[y].scale = Vector3{1.0f, 1.0f, 1.0f};
         cy[y].color = GRAY;
         cy[y].isSelected = false;
@@ -69,24 +73,27 @@ void cylinder(const Vector3 pos){
     }
 }
 
-void frameCube(){
-    for(int i=0; i<c; i++){
-        Color renderColor = Cu[i].isSelected ? BLUE : Cu[i].color;
-        DrawModelEx(cubeModel, Cu[i].position, Cu[i].rotationAxis, Cu[i].rotationAngle, Cu[i].scale, renderColor);
+void frameCube() {
+    for (int i = 0; i < c; i++) {
+        Color renderColor = Cu[i].color;
+        renderColor.a = Cu[i].isSelected ? 128 : 255; // changes transparency when objec tis selected
+        DrawObjectModel(cubeModel, Cu[i], renderColor);
     }
 }
 
-void frameSphere(){
-    for(int i=0; i<s; i++){
-        Color renderColor = Sp[i].isSelected ? BLUE : Sp[i].color;
-        DrawModelEx(sphereModel, Sp[i].position, Sp[i].rotationAxis, Sp[i].rotationAngle, Sp[i].scale, renderColor);
+void frameSphere() {
+    for (int i = 0; i < s; i++) {
+        Color renderColor = Sp[i].color;
+        renderColor.a = Sp[i].isSelected ? 128 : 255; // changes transparency when objec tis selected
+        DrawObjectModel(sphereModel, Sp[i], renderColor);
     }
 }
 
-void frameCylinder(){
-    for(int i=0; i<y; i++){
-        Color renderColor = cy[i].isSelected ? BLUE : cy[i].color;
-        DrawModelEx(cylinderModel, cy[i].position, cy[i].rotationAxis, cy[i].rotationAngle, cy[i].scale, renderColor);
+void frameCylinder() {
+    for (int i = 0; i < y; i++) {
+        Color renderColor = cy[i].color;
+        renderColor.a = cy[i].isSelected ? 128 : 255; // changes transparency when objec tis selected
+        DrawObjectModel(cylinderModel, cy[i], renderColor);
     }
 }
 void Unload(void) {
@@ -150,4 +157,34 @@ void leftclick(Ray ray){
         for(int i=0; i<y; i++) if (cy[i].isSelected) totalSelectedCount++;
     
 }
-  
+static void DrawObjectModel(Model model, ObjectInstance obj, Color color) {
+    rlPushMatrix();
+
+        rlTranslatef(obj.position.x, obj.position.y, obj.position.z);
+
+        rlRotatef(obj.rotation.x, 1.0f, 0.0f, 0.0f);
+        rlRotatef(obj.rotation.y, 0.0f, 1.0f, 0.0f);
+        rlRotatef(obj.rotation.z, 0.0f, 0.0f, 1.0f);
+
+        rlScalef(obj.scale.x, obj.scale.y, obj.scale.z);
+
+        DrawModel(model, { 0.0f, 0.0f, 0.0f }, 1.0f, color);
+
+    rlPopMatrix();
+}
+bool updateObjectTransformGizmo(Camera3D camera) {
+    return UpdateTransformGizmo(
+        camera,
+        Cu, c,
+        Sp, s,
+        cy, y
+    );
+}
+
+void drawObjectTransformGizmo() {
+    DrawTransformGizmo(
+        Cu, c,
+        Sp, s,
+        cy, y
+    );
+}

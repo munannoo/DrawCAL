@@ -14,5 +14,6 @@ void DrawCameraScene(const Camera3D &camera)
     frameCube();
     frameSphere();
     frameCylinder();
+    drawObjectTransformGizmo();
     EndMode3D();
 }

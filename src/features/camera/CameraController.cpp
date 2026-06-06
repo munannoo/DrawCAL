@@ -24,15 +24,11 @@ void UpdateCameraController(Camera3D &camera)
     if (IsKeyDown(KEY_Q)) CameraMoveUp(&camera, moveStep);
     if (IsKeyDown(KEY_E)) CameraMoveUp(&camera, -moveStep);
 
-    if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)){
+    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
         Vector2 mousedis = GetMouseDelta();
         float xangle = mousedis.x * -mouseSensitivity * deltaTime;
         float yangle = mousedis.y * -mouseSensitivity * deltaTime;
         
         UpdateCameraPro(&camera, Vector3{0.0f, 0.0f, 0.0f}, Vector3{xangle, yangle, 0.0f}, 0.0f);
-    }
-
-    if (IsKeyPressed(KEY_Z)){
-        camera.target = { 0.0f, 0.0f, 0.0f };
     }
 }
