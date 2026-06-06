@@ -7,11 +7,59 @@ static Model ringModel;
 static bool ringModelLoaded = false;
 static GizmoState currentGizmoState = GIZMO_NONE;
 static Vector3 gizmoCenter = { 0.0f, 0.0f, 0.0f };
+
+typedef struct GizmoDimensions {
+    float size;
+    float objectRadius;
+    float arrowLength;
+    float arrowTipEnd;
+    float scaleHandleDistance;
+    float axisRadius;
+    float axisPickRadius;
+    float coneRadius;
+    float cubeSize;
+    float ringOuterX;
+    float ringOuterY;
+    float ringOuterZ;
+    float ringPickPixels;
+} GizmoDimensions;
+
+static float ClampFloat(float value, float minValue, float maxValue)
+{
+    if (value < minValue) return minValue;
+    if (value > maxValue) return maxValue;
+    return value;
+}
+
+static GizmoDimensions GetGizmoDimensions(float selectedMaxScale)
+{
+    GizmoDimensions dims = { 0 };
+
+    dims.size = ClampFloat(1.0f + (selectedMaxScale - 1.0f) * 0.45f, 0.9f, 3.0f);
+    dims.objectRadius = ClampFloat(selectedMaxScale * 1.25f, 1.1f, 5.0f);
+
+    dims.arrowLength = dims.objectRadius + 1.2f * dims.size;
+    dims.arrowTipEnd = dims.arrowLength + 0.38f * dims.size;
+    dims.scaleHandleDistance = dims.arrowTipEnd + 0.45f * dims.size;
+
+    dims.axisRadius = 0.055f * dims.size;
+    dims.axisPickRadius = 0.18f * dims.size;
+    dims.coneRadius = 0.20f * dims.size;
+    dims.cubeSize = 0.38f * dims.size;
+
+    dims.ringOuterX = dims.objectRadius + 0.75f * dims.size;
+    dims.ringOuterY = dims.objectRadius + 0.98f * dims.size;
+    dims.ringOuterZ = dims.objectRadius + 1.21f * dims.size;
+    dims.ringPickPixels = 11.0f;
+
+    return dims;
+}
+
 void InitTransformGizmo()
 {
     if (ringModelLoaded) return;
 
-    Mesh torusMesh = GenMeshTorus(1.0f, 0.12f, 32, 64);
+    Mesh torusMesh = GenMeshTorus(0.8f, 4.0f, 16, 32);
     ringModel = LoadModelFromMesh(torusMesh);
 
     ringModelLoaded = true;
@@ -175,24 +223,129 @@ static void RotateSelectedObjectsAxis(
     }
 }
 
-static bool checkGizmoClick(Ray ray, Vector3 center, float gizmoSize) {
-    float objectRadius = gizmoSize * 1.3f;
+static float DistancePointToSegment(Vector2 point, Vector2 start, Vector2 end)
+{
+    Vector2 segment = Vector2Subtract(end, start);
+    float segmentLengthSq = Vector2DotProduct(segment, segment);
 
-    if (objectRadius < 1.3f) {
-        objectRadius = 1.3f;
+    if (segmentLengthSq <= 0.0001f) {
+        return Vector2Distance(point, start);
     }
 
-    if (objectRadius > 6.0f) {
-        objectRadius = 6.0f;
+    float t = Vector2DotProduct(Vector2Subtract(point, start), segment) / segmentLengthSq;
+    t = ClampFloat(t, 0.0f, 1.0f);
+
+    Vector2 closest = Vector2Add(start, Vector2Scale(segment, t));
+    return Vector2Distance(point, closest);
+}
+
+static float GetRingScreenDistance(
+    Camera3D camera,
+    Vector2 mouse,
+    Vector3 center,
+    Vector3 axisA,
+    Vector3 axisB,
+    float radius
+) {
+    float closestDistance = 1000000.0f;
+    const int segments = 96;
+
+    for (int i = 0; i < segments; i++) {
+        float angleA = (2.0f * PI * i) / segments;
+        float angleB = (2.0f * PI * (i + 1)) / segments;
+
+        Vector3 worldA = Vector3Add(
+            center,
+            Vector3Add(
+                Vector3Scale(axisA, cosf(angleA) * radius),
+                Vector3Scale(axisB, sinf(angleA) * radius)
+            )
+        );
+        Vector3 worldB = Vector3Add(
+            center,
+            Vector3Add(
+                Vector3Scale(axisA, cosf(angleB) * radius),
+                Vector3Scale(axisB, sinf(angleB) * radius)
+            )
+        );
+
+        Vector2 screenA = GetWorldToScreen(worldA, camera);
+        Vector2 screenB = GetWorldToScreen(worldB, camera);
+        float distance = DistancePointToSegment(mouse, screenA, screenB);
+
+        if (distance < closestDistance) {
+            closestDistance = distance;
+        }
     }
-    float moveStart = 1.0f * gizmoSize;
-    float moveEnd   = 2.6f * gizmoSize;
 
-    float scaleStart = 2.8f * gizmoSize;
-    float scaleEnd   = 3.35f * gizmoSize;
+    return closestDistance;
+}
 
-    float axisThickness = 0.18f * gizmoSize;
-    float scaleThickness = 0.35f * gizmoSize;
+static GizmoState GetClickedRing(Camera3D camera, Vector2 mouse, Vector3 center, GizmoDimensions dims)
+{
+    float closestRingDistance = dims.ringPickPixels;
+    GizmoState closestRing = GIZMO_NONE;
+    float ringDistance = GetRingScreenDistance(
+        camera,
+        mouse,
+        center,
+        { 0.0f, 1.0f, 0.0f },
+        { 0.0f, 0.0f, 1.0f },
+        dims.ringOuterX
+    );
+
+    if (ringDistance < closestRingDistance) {
+        closestRingDistance = ringDistance;
+        closestRing = GIZMO_ROTATE_X;
+    }
+
+    ringDistance = GetRingScreenDistance(
+        camera,
+        mouse,
+        center,
+        { 1.0f, 0.0f, 0.0f },
+        { 0.0f, 0.0f, 1.0f },
+        dims.ringOuterY
+    );
+
+    if (ringDistance < closestRingDistance) {
+        closestRingDistance = ringDistance;
+        closestRing = GIZMO_ROTATE_Y;
+    }
+
+    ringDistance = GetRingScreenDistance(
+        camera,
+        mouse,
+        center,
+        { 1.0f, 0.0f, 0.0f },
+        { 0.0f, 1.0f, 0.0f },
+        dims.ringOuterZ
+    );
+
+    if (ringDistance < closestRingDistance) {
+        closestRingDistance = ringDistance;
+        closestRing = GIZMO_ROTATE_Z;
+    }
+
+    return closestRing;
+}
+
+static bool checkGizmoClick(Ray ray, Camera3D camera, Vector2 mouse, Vector3 center, GizmoDimensions dims) {
+    GizmoState clickedRing = GetClickedRing(camera, mouse, center, dims);
+
+    if (clickedRing != GIZMO_NONE) {
+        currentGizmoState = clickedRing;
+        return true;
+    }
+
+    float moveStart = dims.objectRadius * 0.65f;
+    float moveEnd   = dims.arrowTipEnd;
+
+    float scaleStart = dims.scaleHandleDistance - dims.cubeSize * 0.65f;
+    float scaleEnd   = dims.scaleHandleDistance + dims.cubeSize * 0.65f;
+
+    float axisThickness = dims.axisPickRadius;
+    float scaleThickness = dims.cubeSize * 0.65f;
 
     BoundingBox moveXBox = {
         { center.x + moveStart, center.y - axisThickness, center.z - axisThickness },
@@ -254,27 +407,6 @@ static bool checkGizmoClick(Ray ray, Vector3 center, float gizmoSize) {
         return true;
     }
 
-    // Bigger ring click area
-    float outerRadius = objectRadius + 1.5f;
-    float innerRadius = objectRadius + 0.5f;
-
-    RayCollision outerRing = GetRayCollisionSphere(ray, center, outerRadius);
-    RayCollision innerRing = GetRayCollisionSphere(ray, center, innerRadius);
-
-    if (outerRing.hit && !innerRing.hit) {
-        if (IsKeyDown(KEY_X)) {
-            currentGizmoState = GIZMO_ROTATE_X;
-        }
-        else if (IsKeyDown(KEY_Z)) {
-            currentGizmoState = GIZMO_ROTATE_Z;
-        }
-        else {
-            currentGizmoState = GIZMO_ROTATE_Y;
-        }
-
-        return true;
-    }
-
     return false;
 }
 static float GetSelectedMaxScale(
@@ -299,7 +431,8 @@ bool UpdateTransformGizmo(
     gizmoCenter = GetGizmoCenter(cubes, cubeCount, spheres, sphereCount, cylinders, cylinderCount);
 
     Vector2 mouseDelta = GetMouseDelta();
-    Ray ray = GetMouseRay(GetMousePosition(), camera);
+    Vector2 mousePosition = GetMousePosition();
+    Ray ray = GetMouseRay(mousePosition, camera);
 
     bool clickedGizmo = false;
     float selectedMaxScale = GetSelectedMaxScale(
@@ -308,10 +441,10 @@ bool UpdateTransformGizmo(
         cylinders, cylinderCount
     );
 
-    float gizmoSize = selectedMaxScale;
+    GizmoDimensions gizmoDims = GetGizmoDimensions(selectedMaxScale);
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        clickedGizmo = checkGizmoClick(ray, gizmoCenter, gizmoSize);
+        clickedGizmo = checkGizmoClick(ray, camera, mousePosition, gizmoCenter, gizmoDims);
     }
 
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && currentGizmoState != GIZMO_NONE) {
@@ -411,45 +544,23 @@ void DrawTransformGizmo(
         spheres, sphereCount,
         cylinders, cylinderCount
     );
-    float gizmoSize = 1.0f + selectedMaxScale * 0.6f;
-    
-    float arrowLength = 2.0f * gizmoSize;
-    float arrowTipEnd = 2.45f * gizmoSize;
-    float scaleHandleDistance = 3.0f * gizmoSize;
-
-    float axisRadius = 0.06f * gizmoSize;
-    float coneRadius = 0.22f * gizmoSize;
-    float cubeSize = 0.45f * gizmoSize;
-
-    float objectRadius = selectedMaxScale * 1.3f;
-    float ringXRadius = objectRadius + 0.8f;
-    float ringYRadius = objectRadius + 1.0f;
-    float ringZRadius = objectRadius + 1.2f;
+    GizmoDimensions dims = GetGizmoDimensions(selectedMaxScale);
 
     
     //Move X
     DrawCylinderEx(
         center,
-        Vector3Add(center, { arrowLength, 0.0f, 0.0f }),
-        axisRadius,
-        axisRadius,
+        Vector3Add(center, { dims.arrowLength, 0.0f, 0.0f }),
+        dims.axisRadius,
+        dims.axisRadius,
         12,
         RED
     );
 
     DrawCylinderEx(
-        Vector3Add(center, { arrowLength, 0.0f, 0.0f }),
-        Vector3Add(center, { arrowTipEnd, 0.0f, 0.0f }),
-        coneRadius,
-        0.0f,
-        12,
-        RED
-    );
-
-    DrawCylinderEx(
-        Vector3Add(center, { arrowLength, 0.0f, 0.0f }),
-        Vector3Add(center, { arrowTipEnd, 0.0f, 0.0f }),
-        0.18f,
+        Vector3Add(center, { dims.arrowLength, 0.0f, 0.0f }),
+        Vector3Add(center, { dims.arrowTipEnd, 0.0f, 0.0f }),
+        dims.coneRadius,
         0.0f,
         12,
         RED
@@ -458,17 +569,17 @@ void DrawTransformGizmo(
     //Move Y
     DrawCylinderEx(
         center,
-        Vector3Add(center, { 0.0f, arrowLength, 0.0f }),
-        0.05f,
-        0.05f,
+        Vector3Add(center, { 0.0f, dims.arrowLength, 0.0f }),
+        dims.axisRadius,
+        dims.axisRadius,
         12,
         GREEN
     );
 
     DrawCylinderEx(
-        Vector3Add(center, { 0.0f, arrowLength, 0.0f }),
-        Vector3Add(center, { 0.0f, arrowTipEnd, 0.0f }),
-        0.18f,
+        Vector3Add(center, { 0.0f, dims.arrowLength, 0.0f }),
+        Vector3Add(center, { 0.0f, dims.arrowTipEnd, 0.0f }),
+        dims.coneRadius,
         0.0f,
         12,
         GREEN
@@ -477,75 +588,74 @@ void DrawTransformGizmo(
     // Move Z
     DrawCylinderEx(
         center,
-        Vector3Add(center, { 0.0f, 0.0f, arrowLength }),
-        0.05f,
-        0.05f,
+        Vector3Add(center, { 0.0f, 0.0f, dims.arrowLength }),
+        dims.axisRadius,
+        dims.axisRadius,
         12,
         BLUE
     );
 
     DrawCylinderEx(
-        Vector3Add(center, { 0.0f, 0.0f, arrowLength }),
-        Vector3Add(center, { 0.0f, 0.0f, arrowTipEnd }),
-        0.18f,
+        Vector3Add(center, { 0.0f, 0.0f, dims.arrowLength }),
+        Vector3Add(center, { 0.0f, 0.0f, dims.arrowTipEnd }),
+        dims.coneRadius,
         0.0f,
         12,
         BLUE
     );
     DrawCube(
-        Vector3Add(center, { scaleHandleDistance, 0.0f, 0.0f }),
-        cubeSize,
-        cubeSize,
-        cubeSize,
+        Vector3Add(center, { dims.scaleHandleDistance, 0.0f, 0.0f }),
+        dims.cubeSize,
+        dims.cubeSize,
+        dims.cubeSize,
         RED
     );
 
     DrawCube(
-        Vector3Add(center, { 0.0f, scaleHandleDistance, 0.0f }),
-        cubeSize,
-        cubeSize,
-        cubeSize,
+        Vector3Add(center, { 0.0f, dims.scaleHandleDistance, 0.0f }),
+        dims.cubeSize,
+        dims.cubeSize,
+        dims.cubeSize,
         GREEN
     );
 
     DrawCube(
-        Vector3Add(center, { 0.0f, 0.0f, scaleHandleDistance }),
-        cubeSize,
-        cubeSize,
-        cubeSize,
+        Vector3Add(center, { 0.0f, 0.0f, dims.scaleHandleDistance }),
+        dims.cubeSize,
+        dims.cubeSize,
+        dims.cubeSize,
         BLUE
     );
     
     rlDisableDepthTest();
 
-    if (ringModelLoaded) {
-    DrawModelEx(
-        ringModel,
+    rlSetLineWidth(3.0f);
+
+    DrawCircle3D(
         center,
+        dims.ringOuterX,
         { 0.0f, 1.0f, 0.0f },
         90.0f,
-        { ringXRadius, ringXRadius, ringXRadius },
         RED
     );
 
-    DrawModelEx(
-        ringModel,
+    DrawCircle3D(
         center,
+        dims.ringOuterY,
         { 1.0f, 0.0f, 0.0f },
         90.0f,
-        { ringYRadius, ringYRadius, ringYRadius },
         GREEN
     );
 
-    DrawModelEx(
-        ringModel,
+    DrawCircle3D(
         center,
+        dims.ringOuterZ,
         { 0.0f, 0.0f, 1.0f },
         0.0f,
-        { ringZRadius, ringZRadius, ringZRadius },
         BLUE
     );
-    }
+
+    rlSetLineWidth(2.0f);
 
     rlEnableDepthTest();
 

@@ -75,21 +75,24 @@ void cylinder(const Vector3 pos){
 
 void frameCube() {
     for (int i = 0; i < c; i++) {
-        Color renderColor = Cu[i].isSelected ? BLUE : Cu[i].color;
+        Color renderColor = Cu[i].color;
+        renderColor.a = Cu[i].isSelected ? 128 : 255; // changes transparency when objec tis selected
         DrawObjectModel(cubeModel, Cu[i], renderColor);
     }
 }
 
 void frameSphere() {
     for (int i = 0; i < s; i++) {
-        Color renderColor = Sp[i].isSelected ? BLUE : Sp[i].color;
+        Color renderColor = Sp[i].color;
+        renderColor.a = Sp[i].isSelected ? 128 : 255; // changes transparency when objec tis selected
         DrawObjectModel(sphereModel, Sp[i], renderColor);
     }
 }
 
 void frameCylinder() {
     for (int i = 0; i < y; i++) {
-        Color renderColor = cy[i].isSelected ? BLUE : cy[i].color;
+        Color renderColor = cy[i].color;
+        renderColor.a = cy[i].isSelected ? 128 : 255; // changes transparency when objec tis selected
         DrawObjectModel(cylinderModel, cy[i], renderColor);
     }
 }
