@@ -22,10 +22,19 @@ int main()
     initModels(); // Initialize the Models, only needs to be called once
     InitTransformGizmo(); // Initialize the transform gizmo, only needs to be called once
     Camera3D camera;
-    InitCamera(camera);             
+    InitCamera(camera);           
+    int check=0;  
     // Main loop (Runs each frame until the window closes)
     while (!WindowShouldClose())
     {
+        
+        if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))&& check == 0) {
+            DisableCursor();
+            check = 1;
+        } else if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && check == 1) {
+            ShowCursor();
+            check = 0;
+        }
         Ray ray = GetMouseRay(GetMousePosition(), camera);
         bool usingGizmo = updateObjectTransformGizmo(camera);
         if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !usingGizmo){
