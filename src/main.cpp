@@ -1,4 +1,5 @@
 #include "raylib.h"
+#include "features/shadings/textures.h"
 #include "features/camera/CameraController.h"
 #include "rendering/renderer.h"
 #include "input/InputHandler.h"
@@ -6,6 +7,7 @@
 #include "ui/widgets/buttons.h"
 #include "objects/object.h"
 #include "features/manipulation/Transform.h"
+
 int main()
 {   
     SetConfigFlags(FLAG_VSYNC_HINT); // Enable vsync
