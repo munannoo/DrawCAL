@@ -12,4 +12,6 @@ void frameSphere();
 void frameCylinder();
 void Unload();
 void leftclick(Ray ray);
+bool updateObjectTransformGizmo(Camera3D camera);
+void drawObjectTransformGizmo();
 #endif // object_h
