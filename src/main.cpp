@@ -1,10 +1,12 @@
 #include "raylib.h"
+#include "features/shadings/textures.h"
 #include "features/camera/CameraController.h"
 #include "rendering/renderer.h"
 #include "input/InputHandler.h"
 #include "ui/panels/toolbar.h"
 #include "ui/widgets/buttons.h"
 #include "objects/object.h"
+
 
 int main()
 {   

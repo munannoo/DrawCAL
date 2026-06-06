@@ -8,6 +8,18 @@
     extern Model model;
     static Vector2 clickPos = { 0.0f, 0.0f };
     static Vector3 objPosn = { 0.0f, 0.0f, 0.0f };
+
+    void loadTexture() {
+    Texture2D texture = LoadTexture("../assets/textures/Metal_texture.png");
+    // if (texture.id == 0) {
+    //     std::cerr << "Failed to load texture: " << "../assets/textures/assets/textures/Metal_texture.png" << std::endl;
+    // }
+    Model model = LoadModelFromMesh(GenMeshPlane(2,2,4,3));
+    model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+    Vector3 position = { 10.0f, 0.0f, 0.0f };
+    DrawModel(model, position, 1.0f, WHITE);
+}
+
     void contextMenu(bool& mouseButtonPressed,Camera3D& camera)
     {   
         static int mainFocused = -1;
@@ -44,7 +56,8 @@
         char *rootMenu[] = {
             "Insert Mesh",
             "Object Editing",
-            "Delete Object"
+            "Delete Object",
+            "Add Texture"
         };    
         char* addMesh[] = {
             "Insert Cube", 
@@ -54,7 +67,8 @@
         enum rootMenuIndex {
             Menu_InsertMesh = 0,
             Menu_ObjectEditing,
-            Menu_DeleteObject
+            Menu_DeleteObject,
+            Add_texture,
         };
 
 
@@ -106,6 +120,11 @@
                         cylinder(objPosn);
                     }
                 }
+                else if (strcmp(rootMenu[mainActive], "Add Texture") == 0)
+                {
+                    loadTexture();
+                }
+                
                 
                 TraceLog(LOG_INFO, TextFormat("CLICKED >>> %s > %s", rootMenu[mainActive], submenuText[focused])); 
                 state = STATE_BASE;
@@ -136,3 +155,4 @@
         // }
         
     }
+    
