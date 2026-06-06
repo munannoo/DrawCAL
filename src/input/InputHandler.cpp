@@ -4,21 +4,11 @@
     #include <objects/object.h>
     #include <cstring>
     #include <raylib.h>
+    #include "../features/shadings/textures.h"
     extern Camera3D camera;
     extern Model model;
     static Vector2 clickPos = { 0.0f, 0.0f };
     static Vector3 objPosn = { 0.0f, 0.0f, 0.0f };
-
-    void loadTexture() {
-    Texture2D texture = LoadTexture("../assets/textures/Metal_texture.png");
-    // if (texture.id == 0) {
-    //     std::cerr << "Failed to load texture: " << "../assets/textures/assets/textures/Metal_texture.png" << std::endl;
-    // }
-    Model model = LoadModelFromMesh(GenMeshPlane(2,2,4,3));
-    model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
-    Vector3 position = { 10.0f, 0.0f, 0.0f };
-    DrawModel(model, position, 1.0f, WHITE);
-}
 
     void contextMenu(bool& mouseButtonPressed,Camera3D& camera)
     {   
