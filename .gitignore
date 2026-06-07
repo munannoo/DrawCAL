@@ -3,10 +3,11 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 Makefile
-/build/_deps/
 *.exe
 *.dll
 *.out
 .DS_Store
 Thumbs.db
 .vscode/
+.vs/
+out/
