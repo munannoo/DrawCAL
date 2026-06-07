@@ -1,6 +1,0 @@
-*** Begin Patch
-*** Update File: src/ui/scenes/sceneManager.h
-@@
--const int learnSceneCount = 4; // Update this if you add more learn subscenes
-+const int learnSceneCount = 5; // Update this if you add more learn subscenes
-*** End Patch

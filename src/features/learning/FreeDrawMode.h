@@ -21,6 +21,11 @@ static struct freeDrawState {
 	bool mouseButtonPressed;
 	bool initiliased;
 	bool dropdownEditmode;
+	// View dropdown state (top-right)
+	int viewIndex;       // selected view (0=Front,1=Top,2=Left,3=Right)
+	int lastViewIndex;   // used to detect changes
+	bool viewDropdownOpen;
+	bool cameraLocked;   // when true, camera controller movement is disabled (only zoom allowed)
 } freeDrawState;
 
 void freeDrawInit();
