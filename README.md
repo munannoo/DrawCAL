@@ -12,4 +12,4 @@ To Compile:
 
 
 To Run: 
-Exe file location: build/Debug/drawcal_app.exe
+Exe file location: drawcal/drawcal.exe

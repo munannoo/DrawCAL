@@ -24,8 +24,8 @@ static int sceneLightCount = 0;
 
 void InitLighting()
 {
-    const char* vsPath = "../../assets/models/lighting.vs";
-    const char* fsPath = "../../assets/models/lighting.fs";
+    const char* vsPath = "lighting.vs";
+    const char* fsPath = "lighting.fs";
 
     if (!FileExists(vsPath))
     {

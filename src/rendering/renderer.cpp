@@ -12,10 +12,10 @@ int farGridColorLoc;
 int scaleLoc;
 void initgridShader() 
 {
-    TraceLog(LOG_INFO, "grid.vs exists: %s", FileExists("../../assets/models/grid.vs") ? "YES" : "NO");
-    TraceLog(LOG_INFO, "grid.fs exists: %s", FileExists("../../assets/models/grid.fs") ? "YES" : "NO");
+    TraceLog(LOG_INFO, "grid.vs exists: %s", FileExists("grid.vs") ? "YES" : "NO");
+    TraceLog(LOG_INFO, "grid.fs exists: %s", FileExists("grid.fs") ? "YES" : "NO");
 
-    gridShader = LoadShader("../../assets/models/grid.vs","../../assets/models/grid.fs");
+    gridShader = LoadShader("grid.vs","grid.fs");
 
     gridPlane = LoadModelFromMesh(GenMeshPlane(2000.0f, 2000.0f, 1, 1));
     gridPlane.materials[0].shader = gridShader;

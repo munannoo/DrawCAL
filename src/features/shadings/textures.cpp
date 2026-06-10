@@ -7,7 +7,7 @@ static bool textureLoaded = false;
 
 void LoadObjectTextures(){
     if (textureLoaded) return;
-    const char* path = "../../assets/textures/Metal_texture.png";
+    const char* path = "textures/Metal_texture.png";
     metalTexture = LoadTexture(path);
     if (metalTexture.id == 0)
     {
