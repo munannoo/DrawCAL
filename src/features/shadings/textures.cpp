@@ -1,14 +1,37 @@
 #include "textures.h"
-Texture2D texture = LoadTexture("../assets/textures/Metal_texture.png");
-void initTexture(Model &model) {
-    if (texture.id == 0) {
-        std::cerr << "Failed to load texture: ../assets/textures/Metal_texture.png" << std::endl;
+#include "raylib.h"
+#include <iostream>
+
+static Texture2D metalTexture = { 0 };
+static bool textureLoaded = false;
+
+void LoadObjectTextures(){
+    if (textureLoaded) return;
+    const char* path = "../../assets/textures/Metal_texture.png";
+    metalTexture = LoadTexture(path);
+    if (metalTexture.id == 0)
+    {
+        std::cerr << "Failed to load texture: " << path << std::endl;
         return;
     }
-    if (model.materialCount > 0) {
-        model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+    textureLoaded = true;
+}
+void ApplyMetalTexture(Model& model){
+    if (!textureLoaded || metalTexture.id == 0)
+    {
+        std::cerr << "Texture was not loaded before applying to model." << std::endl;
+        return;
+    }
+    if (model.materialCount > 0)
+    {
+        model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = metalTexture;
     }
 }
-void UnloadTextures() {
-    UnloadTexture(texture);
+void UnloadTextures(){
+    if (textureLoaded && metalTexture.id != 0)
+    {
+        UnloadTexture(metalTexture);
+        metalTexture = { 0 };
+        textureLoaded = false;
+    }
 }

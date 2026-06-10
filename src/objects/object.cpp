@@ -29,19 +29,25 @@ static int totalSelectedCount = 0;
 
 
 
-void initModels(){
-    initTexture(cubeModel);
-    initTexture(sphereModel);
-    initTexture(cylinderModel);
+void initModels()
+{
     Mesh cubeMesh = GenMeshCube(2.0f, 2.0f, 2.0f);
     cubeModel = LoadModelFromMesh(cubeMesh);
     Cubebounds = GetModelBoundingBox(cubeModel);
-    Mesh sphereMesh = GenMeshSphere(1.0f, 16, 16);
+
+    Mesh sphereMesh = GenMeshSphere(1.0f, 32, 32);
     sphereModel = LoadModelFromMesh(sphereMesh);
     Spherebounds = GetModelBoundingBox(sphereModel);
-    Mesh cylinderMesh = GenMeshCylinder(1.0f, 2.0f, 16);
+
+    Mesh cylinderMesh = GenMeshCylinder(1.0f, 2.0f, 32);
     cylinderModel = LoadModelFromMesh(cylinderMesh);
     Cylinderbounds = GetModelBoundingBox(cylinderModel);
+
+    LoadObjectTextures();
+
+    ApplyMetalTexture(cubeModel);
+    ApplyMetalTexture(sphereModel);
+    ApplyMetalTexture(cylinderModel);
 }
 
 

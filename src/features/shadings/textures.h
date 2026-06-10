@@ -1,12 +1,7 @@
-#ifndef TEXTURES_H
-#define TEXTURES_H
-#include<iostream>
+#pragma once
+
 #include "raylib.h"
 
-void initTexture(Model &model);
+void LoadObjectTextures();
+void ApplyMetalTexture(Model& model);
 void UnloadTextures();
-
-
-
-#endif // TEXTURES_H
-
