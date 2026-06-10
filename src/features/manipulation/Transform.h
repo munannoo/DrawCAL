@@ -2,13 +2,16 @@
 #define TRANSFORM_H
 #include<raylib.h>
 
-typedef struct ObjectInstance {
+struct ObjectInstance {
     Vector3 position;
     Vector3 rotation;
     Vector3 scale;
     Color color;
     bool isSelected;
-} ObjectInstance;
+
+    bool isLight = false;
+    int lightIndex = -1;
+};
 typedef enum GizmoState {
     GIZMO_NONE = 0,
 

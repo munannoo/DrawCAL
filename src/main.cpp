@@ -30,7 +30,8 @@ int main()
     {
         Ray ray = GetMouseRay(GetMousePosition(), camera);
         bool usingGizmo = updateObjectTransformGizmo(camera);
-        if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !usingGizmo){
+        
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !usingGizmo) {
             leftclick(ray);
         }
         if(IsKeyPressed(KEY_F11)){ 

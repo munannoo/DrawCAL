@@ -52,12 +52,13 @@ void DrawCameraScene(const Camera3D &camera)
         if (!start)
         {
             start = true;
-            cube(cubePosition);
+            cube(cubePosition,GRAY);
         }
         UpdateLighting(camera);
         frameCube();
         frameSphere();
         frameCylinder();
+        DrawSceneLights();
         drawObjectTransformGizmo();
 
     EndMode3D();

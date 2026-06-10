@@ -4,6 +4,7 @@
 #include <objects/object.h>
 #include <cstring>
 #include <raylib.h>
+#include "features/shadings/lighting.h"
 extern Camera3D camera;
 extern Model model;
 static Vector2 clickPos = { 0.0f, 0.0f };
@@ -49,15 +50,14 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
     char* addMesh[] = {
         "Insert Cube",
         "Insert Sphere",
-        "Insert Cylinder"
+        "Insert Cylinder",
+        "Insert Point Light"
     };
     enum rootMenuIndex {
         Menu_InsertMesh = 0,
         Menu_ObjectEditing,
         Menu_DeleteObject
     };
-
-
 
 
     if (mouseButtonPressed)
@@ -72,15 +72,37 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
         menuRec.height = itemHeight * (sizeof(rootMenu) / sizeof(rootMenu[0])) + 10; // calculate menu height based on how many items it has
         int focused = mainFocused;
         mainActive = GuiListViewEx(menuRec, rootMenu, (sizeof(rootMenu) / sizeof(rootMenu[0])), NULL, &mainActive, &focused);
-        if (focused >= 0 && focused < (int)(sizeof(rootMenu) / sizeof(rootMenu[0]))) {
-            mainFocused = mainActive = focused;
-            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-                TraceLog(LOG_INFO, TextFormat("CLICKED >>> %s", rootMenu[focused]));
-                state = STATE_BASE;
-                mainFocused = mainActive = subActive = -1;
-            }
+        if (focused >= 0 && focused < (int)(sizeof(rootMenu) / sizeof(rootMenu[0])))
+{
+    mainFocused = focused;
+    mainActive = focused;
+
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+    {
+        TraceLog(LOG_INFO, TextFormat("CLICKED >>> %s", rootMenu[focused]));
+        
+        // Only close menu for root items that do not have submenu
+        if (focused == Menu_ObjectEditing)
+        {
+            state = STATE_BASE;
+            mainFocused = mainActive = subActive = -1;
+            mouseButtonPressed = false;
         }
-        if (mainFocused == Menu_InsertMesh) { submenuText = addMesh; state = STATE_SHOW_SUBMENU; subMenuSize = sizeof(addMesh) / sizeof(addMesh[0]); }
+        if(focused == Menu_DeleteObject)
+        {
+            deleteobj();
+            state = STATE_BASE;
+            mainFocused = mainActive = subActive = -1;
+            mouseButtonPressed = false;
+        }
+    }
+}
+        if (mainFocused == Menu_InsertMesh)
+        {
+            submenuText = addMesh;
+            state = STATE_SHOW_SUBMENU;
+            subMenuSize = sizeof(addMesh) / sizeof(addMesh[0]);
+        }
         // else if(mainFocused == Menu_ObjectEditing) { submenuText = (const char**)submenuOpen; state = STATE_SHOW_SUBMENU; subMenuSize = ARRAY_SIZE(submenuOpen); }
         // else if(mainFocused == Menu_DeleteObject) { submenuText = (const char**)submenuSaveAs; state = STATE_SHOW_SUBMENU; subMenuSize = ARRAY_SIZE(submenuSaveAs); }
     }
@@ -90,7 +112,7 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
         Rectangle bounds = { menuRec.x + menuRec.width + 2, menuRec.y + (float)mainFocused * itemHeight, 100, (float)subMenuSize * itemHeight + 10 };
         int focused = -1;
         subActive = GuiListViewEx(bounds, submenuText, subMenuSize, NULL, &subActive, &focused);
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON && focused >= 0 && focused < subMenuSize)) {
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && focused >= 0 && focused < subMenuSize) {
             // Validation for if the mouse actually clicked on the objects instead of padding which may cause crashes
             Vector2 mousePosition = GetMousePosition();
             Rectangle itemRect = { bounds.x, bounds.y + focused * itemHeight, bounds.width, (float)itemHeight };
@@ -100,17 +122,22 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
                 {
                     if (strcmp(submenuText[focused], "Insert Cube") == 0)
                     {
-                        cube(objPosn);
+                        cube(objPosn,GRAY);
                     }
                     else if (strcmp(submenuText[focused], "Insert Sphere") == 0)
                     {
-                        sphere(objPosn);
+                        sphere(objPosn,GRAY);
                     }
                     else if (strcmp(submenuText[focused], "Insert Cylinder") == 0)
                     {
-                        cylinder(objPosn);
+                        cylinder(objPosn,GRAY);
+                    }
+                    else if (strcmp(submenuText[focused], "Insert Point Light") == 0)
+                    {
+                        lightSphere(objPosn, YELLOW);
                     }
                 }
+
             }
 
             state = STATE_BASE;

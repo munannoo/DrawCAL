@@ -58,34 +58,34 @@ void initModels()
 }
 
 
-void cube(const Vector3 pos) {
+void cube(const Vector3 pos,Color color) {
     if (c < 100) {
         Cu[c].position = pos;
         Cu[c].rotation = { 0.0f, 0.0f, 0.0f };
         Cu[c].scale = { 1.0f, 1.0f, 1.0f };
-        Cu[c].color = GRAY;
+        Cu[c].color = color;
         Cu[c].isSelected = false;
         c++;
     }
 }
 
-void sphere(const Vector3 pos){
+void sphere(const Vector3 pos,Color color){
     if(s<100){
         Sp[s].position = pos;
         Sp[s].rotation = Vector3{0.0f, 0.0f, 0.0f};
         Sp[s].scale = Vector3{1.0f, 1.0f, 1.0f};
-        Sp[s].color = GRAY;
+        Sp[s].color = color;
         Sp[s].isSelected = false;
         s++;
     }
 }
 
-void cylinder(const Vector3 pos){
+void cylinder(const Vector3 pos,Color color){
     if(y<100){
         cy[y].position = pos;
         cy[y].rotation = Vector3{0.0f, 0.0f, 0.0f};
         cy[y].scale = Vector3{1.0f, 1.0f, 1.0f};
-        cy[y].color = GRAY;
+        cy[y].color = color;
         cy[y].isSelected = false;
         y++;
     }
@@ -101,8 +101,23 @@ void frameCube() {
 
 void frameSphere() {
     for (int i = 0; i < s; i++) {
+
+        if (Sp[i].isLight && Sp[i].lightIndex >= 0) {
+            SetSceneLightPosition(Sp[i].lightIndex, Sp[i].position);
+
+            // Draw light marker as unlit bright sphere
+            DrawSphere(Sp[i].position, Sp[i].scale.x, Sp[i].color);
+
+            if (Sp[i].isSelected) {
+                DrawSphereWires(Sp[i].position, Sp[i].scale.x * 1.15f, 16, 16, WHITE);
+            }
+
+            continue;
+        }
+
         Color renderColor = Sp[i].color;
-        renderColor.a = Sp[i].isSelected ? 128 : 255; // changes transparency when objec tis selected
+        renderColor.a = Sp[i].isSelected ? 128 : 255;
+
         DrawObjectModel(sphereModel, Sp[i], renderColor);
     }
 }
@@ -207,4 +222,67 @@ void drawObjectTransformGizmo() {
         Sp, s,
         cy, y
     );
+}
+void lightSphere(const Vector3 pos, Color color)
+{
+    if (s < 100)
+    {
+        int lightIndex = CreatePointLight(pos);
+
+        if (lightIndex == -1) return;
+
+        Sp[s].position = pos;
+        Sp[s].rotation = Vector3{ 0.0f, 0.0f, 0.0f };
+        Sp[s].scale = Vector3{ 0.25f, 0.25f, 0.25f };
+        Sp[s].color = color;
+        Sp[s].isSelected = false;
+
+        Sp[s].isLight = true;
+        Sp[s].lightIndex = lightIndex;
+
+        s++;
+    }
+}
+void deleteobj() {
+    for (int i = 0; i < c; i++) {
+        if (Cu[i].isSelected) {
+            for (int j = i; j < c - 1; j++) {
+                Cu[j] = Cu[j + 1];
+            }
+            c--;
+            i--;
+        }
+    }
+    for (int i = 0; i < s; i++) {
+    if (Sp[i].isSelected) {
+
+        if (Sp[i].isLight && Sp[i].lightIndex >= 0) {
+            int deletedLightIndex = Sp[i].lightIndex;
+            DeleteSceneLight(deletedLightIndex);
+
+            // Fix light indices of remaining light spheres
+            for (int k = 0; k < s; k++) {
+                if (Sp[k].isLight && Sp[k].lightIndex > deletedLightIndex) {
+                    Sp[k].lightIndex--;
+                }
+            }
+        }
+
+        for (int j = i; j < s - 1; j++) {
+            Sp[j] = Sp[j + 1];
+        }
+
+        s--;
+        i--;
+    }
+}
+    for (int i = 0; i < y; i++) {
+        if (cy[i].isSelected) {
+            for (int j = i; j < y - 1; j++) {
+                cy[j] = cy[j + 1];
+            }
+            y--;
+            i--;
+        }
+    }
 }
