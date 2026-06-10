@@ -5,6 +5,7 @@
 #include "raymath.h"
 #include "rlgl.h"
 #include "features/shadings/textures.h"
+#include "features/shadings/lighting.h"
 static Model cubeModel;
 static Model sphereModel;
 static Model cylinderModel;
@@ -31,6 +32,8 @@ static int totalSelectedCount = 0;
 
 void initModels()
 {
+    InitLighting();
+
     Mesh cubeMesh = GenMeshCube(2.0f, 2.0f, 2.0f);
     cubeModel = LoadModelFromMesh(cubeMesh);
     Cubebounds = GetModelBoundingBox(cubeModel);
@@ -42,6 +45,10 @@ void initModels()
     Mesh cylinderMesh = GenMeshCylinder(1.0f, 2.0f, 32);
     cylinderModel = LoadModelFromMesh(cylinderMesh);
     Cylinderbounds = GetModelBoundingBox(cylinderModel);
+
+    ApplyLightingShader(cubeModel);
+    ApplyLightingShader(sphereModel);
+    ApplyLightingShader(cylinderModel);
 
     LoadObjectTextures();
 
@@ -112,6 +119,7 @@ void Unload(void) {
     UnloadModel(sphereModel);
     UnloadModel(cylinderModel);
     UnloadTextures();
+    UnloadLighting();
 }
 void leftclick(Ray ray){
     

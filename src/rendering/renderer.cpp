@@ -2,6 +2,7 @@
 #include "raymath.h"
 #include "rlgl.h"
 #include "objects/object.h"
+#include "features/shadings/lighting.h"
 Shader gridShader;
 Model gridPlane;
 bool start = false;
@@ -53,6 +54,7 @@ void DrawCameraScene(const Camera3D &camera)
             start = true;
             cube(cubePosition);
         }
+        UpdateLighting(camera);
         frameCube();
         frameSphere();
         frameCylinder();
