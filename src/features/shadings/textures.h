@@ -1,10 +1,12 @@
 #ifndef TEXTURES_H
 #define TEXTURES_H
-
 #include<iostream>
 #include "raylib.h"
-#include "textures.h"
+
+void initTexture(Model &model);
+void UnloadTextures();
+
+
 
 #endif // TEXTURES_H
 
-void loadTexture();

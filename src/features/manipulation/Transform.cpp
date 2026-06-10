@@ -35,8 +35,11 @@ static GizmoDimensions GetGizmoDimensions(float selectedMaxScale)
 {
     GizmoDimensions dims = { 0 };
 
-    dims.size = ClampFloat(1.0f + (selectedMaxScale - 1.0f) * 0.45f, 0.9f, 3.0f);
-    dims.objectRadius = ClampFloat(selectedMaxScale * 1.25f, 1.1f, 5.0f);
+    // Let the gizmo grow more with the object
+    dims.size = ClampFloat(1.0f + (selectedMaxScale - 1.0f) * 0.25f, 0.9f, 6.0f);
+
+    // Main fix: do not clamp object radius too low
+    dims.objectRadius = fmaxf(selectedMaxScale * 1.25f, 1.1f);
 
     dims.arrowLength = dims.objectRadius + 1.2f * dims.size;
     dims.arrowTipEnd = dims.arrowLength + 0.38f * dims.size;

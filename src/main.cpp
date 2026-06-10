@@ -11,30 +11,23 @@
 int main()
 {   
     SetConfigFlags(FLAG_VSYNC_HINT); // Enable vsync
+    SetConfigFlags(FLAG_MSAA_4X_HINT); // Enable 4x multisampling anti-aliasing (if available)
     // Resolution settings determined inside toolbar.cpp
-    
+    TraceLog(LOG_INFO, "Working directory: %s", GetWorkingDirectory());
     int currentResIndex = RES_720p; // Used Enum from toolbar.h for readibility, better than just a 2
     int lastResIndex = currentResIndex;
     bool dropdownEditmode = false;
     bool mouseButtonPressed = false; 
-
+    const Color darkBackground = { 57, 57, 57, 255 };
     InitWindow(cr[currentResIndex].width, cr[currentResIndex].height, "DrawCAL"); 
     initModels(); // Initialize the Models, only needs to be called once
     InitTransformGizmo(); // Initialize the transform gizmo, only needs to be called once
     Camera3D camera;
-    InitCamera(camera);           
-    int check=0;  
+    InitCamera(camera);
+    initgridShader();
     // Main loop (Runs each frame until the window closes)
     while (!WindowShouldClose())
     {
-        
-        if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL))&& check == 0) {
-            DisableCursor();
-            check = 1;
-        } else if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && check == 1) {
-            ShowCursor();
-            check = 0;
-        }
         Ray ray = GetMouseRay(GetMousePosition(), camera);
         bool usingGizmo = updateObjectTransformGizmo(camera);
         if(IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !usingGizmo){
@@ -55,7 +48,7 @@ int main()
         }
 
         BeginDrawing();
-        ClearBackground(RAYWHITE);
+        ClearBackground(darkBackground);
         DrawCameraScene(camera);
         topBar(currentResIndex, dropdownEditmode);
 

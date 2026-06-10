@@ -4,7 +4,7 @@
 #include <float.h>
 #include "raymath.h"
 #include "rlgl.h"
-
+#include "features/shadings/textures.h"
 static Model cubeModel;
 static Model sphereModel;
 static Model cylinderModel;
@@ -27,7 +27,12 @@ static int s = 0;
 static int y = 0;
 static int totalSelectedCount = 0;
 
+
+
 void initModels(){
+    initTexture(cubeModel);
+    initTexture(sphereModel);
+    initTexture(cylinderModel);
     Mesh cubeMesh = GenMeshCube(2.0f, 2.0f, 2.0f);
     cubeModel = LoadModelFromMesh(cubeMesh);
     Cubebounds = GetModelBoundingBox(cubeModel);
@@ -100,6 +105,7 @@ void Unload(void) {
     UnloadModel(cubeModel);
     UnloadModel(sphereModel);
     UnloadModel(cylinderModel);
+    UnloadTextures();
 }
 void leftclick(Ray ray){
     

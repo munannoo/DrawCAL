@@ -1,11 +1,14 @@
 #include "textures.h"
-void loadTexture() {
-    Texture2D texture = LoadTexture("../assets/textures/Metal_texture.png");
+Texture2D texture = LoadTexture("../assets/textures/Metal_texture.png");
+void initTexture(Model &model) {
     if (texture.id == 0) {
-        std::cerr << "Failed to load texture: " << "../assets/textures/assets/textures/Metal_texture.png" << std::endl;
+        std::cerr << "Failed to load texture: ../assets/textures/Metal_texture.png" << std::endl;
+        return;
     }
-    Model model = LoadModelFromMesh(GenMeshPlane(2,2,4,3));
-    model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
-    Vector3 position = { 10.0f, 0.0f, 0.0f };
-    DrawModel(model, position, 1.0f, WHITE);
+    if (model.materialCount > 0) {
+        model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+    }
+}
+void UnloadTextures() {
+    UnloadTexture(texture);
 }
