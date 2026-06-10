@@ -144,7 +144,7 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
             mainFocused = mainActive = subActive = -1;
         }
     }
-
+    
     // if(mouseButtonPressed){
     //     DrawRectangle( clickPos.x,  clickPos.y, 150, 150, GRAY); 
     //     Rectangle b1 = { clickPos.x, clickPos.y, 150, 50 };

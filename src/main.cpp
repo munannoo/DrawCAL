@@ -52,7 +52,9 @@ int main()
         ClearBackground(darkBackground);
         DrawCameraScene(camera);
         topBar(currentResIndex, dropdownEditmode);
-
+        if (IsKeyPressed(KEY_BACKSPACE)) {
+            deleteobj();
+        }
         if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || mouseButtonPressed){
             contextMenu(mouseButtonPressed, camera); // under InputHandler.cpp
         }

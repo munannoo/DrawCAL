@@ -5,7 +5,7 @@ void InitCamera(Camera3D &camera)
     camera.position = { 10.0f, 10.0f, 10.0f };
     camera.target   = { 0.0f, 0.0f, 0.0f };
     camera.up       = { 0.0f, 1.0f, 0.0f };
-    camera.fovy     = 45.0f;
+    camera.fovy     = 90.0f;
     camera.projection = CAMERA_PERSPECTIVE;
     
 }
@@ -23,6 +23,12 @@ void UpdateCameraController(Camera3D &camera)
     if (IsKeyDown(KEY_D)) CameraMoveRight(&camera, moveStep, false);
     if (IsKeyDown(KEY_Q)) CameraMoveUp(&camera, moveStep);
     if (IsKeyDown(KEY_E)) CameraMoveUp(&camera, -moveStep);
+    float wheel = GetMouseWheelMove();
+
+    if (wheel != 0.0f)
+    {
+        CameraMoveForward(&camera, wheel * 5.0f, false);
+    }
 
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
         Vector2 mousedis = GetMouseDelta();
