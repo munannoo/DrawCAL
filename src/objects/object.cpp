@@ -29,8 +29,12 @@ static int c = 0;
 static int s = 0;
 static int y = 0;
 static int totalSelectedCount = 0;
-
-
+void load(){
+    loadScene(Cu, c, Sp, s, cy, y);
+}
+void save(){
+    saveScene(Cu, c, Sp, s, cy, y);
+}
 
 void initModels()
 {
@@ -57,6 +61,7 @@ void initModels()
     ApplyMetalTexture(cubeModel);
     ApplyMetalTexture(sphereModel);
     ApplyMetalTexture(cylinderModel);
+    load();
 }
 
 
@@ -68,8 +73,6 @@ void cube(const Vector3 pos,Color color) {
         Cu[c].color = color;
         Cu[c].isSelected = false;
         c++;
-
-        saveScene("cube", color, Cu[c].position, Cu[c].rotation, Cu[c].scale);
     }
 }
 
@@ -134,6 +137,7 @@ void frameCylinder() {
     }
 }
 void Unload(void) {
+    save();
     UnloadModel(cubeModel);
     UnloadModel(sphereModel);
     UnloadModel(cylinderModel);

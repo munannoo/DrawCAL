@@ -11,6 +11,7 @@ static Vector3 gizmoCenter = { 0.0f, 0.0f, 0.0f };
 typedef struct GizmoDimensions {
     float size;
     float objectRadius;
+    float arrowStart;
     float arrowLength;
     float arrowTipEnd;
     float scaleHandleDistance;
@@ -34,25 +35,24 @@ static float ClampFloat(float value, float minValue, float maxValue)
 static GizmoDimensions GetGizmoDimensions(float selectedMaxScale)
 {
     GizmoDimensions dims = { 0 };
-
-    // Let the gizmo grow more with the object
     dims.size = ClampFloat(1.0f + (selectedMaxScale - 1.0f) * 0.25f, 0.9f, 6.0f);
-
-    // Main fix: do not clamp object radius too low
     dims.objectRadius = fmaxf(selectedMaxScale * 1.25f, 1.1f);
+    // Rotation rings stay closer to object
+    dims.ringOuterX = dims.objectRadius + 0.55f * dims.size;
+    dims.ringOuterY = dims.objectRadius + 0.78f * dims.size;
+    dims.ringOuterZ = dims.objectRadius + 1.01f * dims.size;
+    // Move arrows start AFTER the rotation rings
+    float outerRing = dims.ringOuterZ;
+    dims.arrowStart = outerRing + 0.35f * dims.size;
+    dims.arrowLength = dims.arrowStart + 1.45f * dims.size;
+    dims.arrowTipEnd = dims.arrowLength + 0.45f * dims.size;
+    // Scale cubes move further too
+    dims.scaleHandleDistance = dims.arrowTipEnd + 0.55f * dims.size;
+    dims.axisRadius = 0.06f * dims.size;
+    dims.axisPickRadius = 0.20f * dims.size;
+    dims.coneRadius = 0.23f * dims.size;
+    dims.cubeSize = 0.42f * dims.size;
 
-    dims.arrowLength = dims.objectRadius + 1.2f * dims.size;
-    dims.arrowTipEnd = dims.arrowLength + 0.38f * dims.size;
-    dims.scaleHandleDistance = dims.arrowTipEnd + 0.45f * dims.size;
-
-    dims.axisRadius = 0.055f * dims.size;
-    dims.axisPickRadius = 0.18f * dims.size;
-    dims.coneRadius = 0.20f * dims.size;
-    dims.cubeSize = 0.38f * dims.size;
-
-    dims.ringOuterX = dims.objectRadius + 0.75f * dims.size;
-    dims.ringOuterY = dims.objectRadius + 0.98f * dims.size;
-    dims.ringOuterZ = dims.objectRadius + 1.21f * dims.size;
     dims.ringPickPixels = 11.0f;
 
     return dims;
@@ -341,7 +341,7 @@ static bool checkGizmoClick(Ray ray, Camera3D camera, Vector2 mouse, Vector3 cen
         return true;
     }
 
-    float moveStart = dims.objectRadius * 0.65f;
+    float moveStart = dims.arrowStart;
     float moveEnd   = dims.arrowTipEnd;
 
     float scaleStart = dims.scaleHandleDistance - dims.cubeSize * 0.65f;
@@ -552,7 +552,7 @@ void DrawTransformGizmo(
     
     //Move X
     DrawCylinderEx(
-        center,
+        Vector3Add(center, { dims.arrowStart, 0.0f, 0.0f }),
         Vector3Add(center, { dims.arrowLength, 0.0f, 0.0f }),
         dims.axisRadius,
         dims.axisRadius,
@@ -571,7 +571,7 @@ void DrawTransformGizmo(
 
     //Move Y
     DrawCylinderEx(
-        center,
+        Vector3Add(center, { 0.0f, dims.arrowStart, 0.0f }),
         Vector3Add(center, { 0.0f, dims.arrowLength, 0.0f }),
         dims.axisRadius,
         dims.axisRadius,
@@ -590,7 +590,7 @@ void DrawTransformGizmo(
 
     // Move Z
     DrawCylinderEx(
-        center,
+        Vector3Add(center, { 0.0f, 0.0f, dims.arrowStart }),
         Vector3Add(center, { 0.0f, 0.0f, dims.arrowLength }),
         dims.axisRadius,
         dims.axisRadius,

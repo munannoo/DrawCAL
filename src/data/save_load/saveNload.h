@@ -1,16 +1,14 @@
-#ifndef SAVENLOAD_H
-#define SAVENLOAD_H
-
-#include <raylib.h>
-#include <string>
+#pragma once
+#include "objects/object.h"
 
 void saveScene(
-    std::string type,
-    Color color,
-    Vector3 cords,
-    Vector3 angles,
-    Vector3 transforms
+    ObjectInstance Cu[], int c,
+    ObjectInstance Sp[], int s,
+    ObjectInstance cy[], int y
 );
 
-
-#endif
+bool loadScene(
+    ObjectInstance Cu[], int& c,
+    ObjectInstance Sp[], int& s,
+    ObjectInstance cy[], int& y
+);
