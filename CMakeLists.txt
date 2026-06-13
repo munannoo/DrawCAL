@@ -28,6 +28,7 @@ add_executable(drawcal_app ${SOURCES})
 target_include_directories(drawcal_app PRIVATE 
     src/
     ${raygui_SOURCE_DIR}/src
+    src/data/save_load
 )
 
 target_link_libraries(drawcal_app raylib)
@@ -41,4 +42,8 @@ set_target_properties(drawcal_app PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/drawcal"
     RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${CMAKE_SOURCE_DIR}/drawcal"
     RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL "${CMAKE_SOURCE_DIR}/drawcal"
+)
+
+set_property(TARGET drawcal_app PROPERTY
+    VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:drawcal_app>"
 )

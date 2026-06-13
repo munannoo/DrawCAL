@@ -6,6 +6,8 @@
 #include "rlgl.h"
 #include "features/shadings/textures.h"
 #include "features/shadings/lighting.h"
+#include "data/save_load/saveNload.h"
+
 static Model cubeModel;
 static Model sphereModel;
 static Model cylinderModel;
@@ -27,8 +29,12 @@ static int c = 0;
 static int s = 0;
 static int y = 0;
 static int totalSelectedCount = 0;
-
-
+void load(){
+    loadScene(Cu, c, Sp, s, cy, y);
+}
+void save(){
+    saveScene(Cu, c, Sp, s, cy, y);
+}
 
 void initModels()
 {
@@ -55,6 +61,7 @@ void initModels()
     ApplyMetalTexture(cubeModel);
     ApplyMetalTexture(sphereModel);
     ApplyMetalTexture(cylinderModel);
+    load();
 }
 
 
@@ -130,6 +137,7 @@ void frameCylinder() {
     }
 }
 void Unload(void) {
+    save();
     UnloadModel(cubeModel);
     UnloadModel(sphereModel);
     UnloadModel(cylinderModel);

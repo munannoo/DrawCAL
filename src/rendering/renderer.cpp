@@ -5,7 +5,7 @@
 #include "features/shadings/lighting.h"
 Shader gridShader;
 Model gridPlane;
-bool start = false;
+
 int camPosLoc;
 int gridColorLoc;
 int farGridColorLoc;
@@ -49,11 +49,6 @@ void DrawCameraScene(const Camera3D &camera)
         EndBlendMode();
         
         rlEnableBackfaceCulling();
-        if (!start)
-        {
-            start = true;
-            cube(cubePosition,GRAY);
-        }
         UpdateLighting(camera);
         frameCube();
         frameSphere();
