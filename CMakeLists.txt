@@ -28,6 +28,7 @@ add_executable(drawcal_app ${SOURCES})
 target_include_directories(drawcal_app PRIVATE 
     src/
     ${raygui_SOURCE_DIR}/src
+    src/data/save_load
 )
 
 target_link_libraries(drawcal_app raylib)

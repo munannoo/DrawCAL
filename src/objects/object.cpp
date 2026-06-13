@@ -6,6 +6,8 @@
 #include "rlgl.h"
 #include "features/shadings/textures.h"
 #include "features/shadings/lighting.h"
+#include "data/save_load/saveNload.h"
+
 static Model cubeModel;
 static Model sphereModel;
 static Model cylinderModel;
@@ -66,6 +68,8 @@ void cube(const Vector3 pos,Color color) {
         Cu[c].color = color;
         Cu[c].isSelected = false;
         c++;
+
+        saveScene("cube", color, Cu[c].position, Cu[c].rotation, Cu[c].scale);
     }
 }
 
