@@ -12,10 +12,10 @@ int farGridColorLoc;
 int scaleLoc;
 void initgridShader() 
 {
-    TraceLog(LOG_INFO, "grid.vs exists: %s", FileExists("grid.vs") ? "YES" : "NO");
-    TraceLog(LOG_INFO, "grid.fs exists: %s", FileExists("grid.fs") ? "YES" : "NO");
+    TraceLog(LOG_INFO, "grid.vs exists: %s", FileExists("shaders/grid.vs") ? "YES" : "NO");
+    TraceLog(LOG_INFO, "grid.fs exists: %s", FileExists("shaders/grid.fs") ? "YES" : "NO");
 
-    gridShader = LoadShader("grid.vs","grid.fs");
+    gridShader = LoadShader("shaders/grid.vs","shaders/grid.fs");
 
     gridPlane = LoadModelFromMesh(GenMeshPlane(2000.0f, 2000.0f, 1, 1));
     gridPlane.materials[0].shader = gridShader;
@@ -24,6 +24,7 @@ void initgridShader()
     gridColorLoc = GetShaderLocation(gridShader, "gridColor");
     farGridColorLoc = GetShaderLocation(gridShader, "farGridColor");
     scaleLoc = GetShaderLocation(gridShader, "scale");
+    
 }
 
 Vector4 gridCol = { 0.5f, 0.5f, 0.5f, 0.8f };

@@ -23,11 +23,27 @@ static json colorToJson(Color color) {
         {"a", color.a}
     };
 }
+static const char* MaterialTypeToString(MaterialType material)
+{
+    switch (material) {
+        case MATERIAL_CONCRETE: return "concrete";
+        case MATERIAL_WOOD: return "wood";
+        case MATERIAL_PLASTIC: return "plastic";
+        default: return "concrete";
+    }
+}
 
+static MaterialType StringToMaterialType(const std::string& material)
+{
+    if (material == "wood") return MATERIAL_WOOD;
+    if (material == "plastic") return MATERIAL_PLASTIC;
+    return MATERIAL_CONCRETE;
+}
 static void addObject(json& sceneData, const char* type, ObjectInstance& obj) {
     json objectData;
 
     objectData["type"] = type;
+    objectData["material"] = MaterialTypeToString(obj.material);
     objectData["color"] = colorToJson(obj.color);
     objectData["position"] = vector3ToJson(obj.position);
     objectData["rotation"] = vector3ToJson(obj.rotation);
@@ -124,6 +140,7 @@ bool loadScene(
         Cu[0].rotation = Vector3{ 0.0f, 0.0f, 0.0f };
         Cu[0].scale = Vector3{ 1.0f, 1.0f, 1.0f };
         Cu[0].color = Color{ 130, 130, 130, 255 };
+        Cu[0].material = MATERIAL_WOOD;
         Cu[0].isSelected = false;
         Cu[0].isLight = false;
         Cu[0].lightIndex = -1;

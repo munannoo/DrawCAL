@@ -7,7 +7,7 @@
 #include "ui/widgets/buttons.h"
 #include "objects/object.h"
 #include "features/manipulation/Transform.h"
-
+#include "features/shadings/lighting.h"
 int main()
 {   
     SetConfigFlags(FLAG_VSYNC_HINT); // Enable vsync
@@ -30,33 +30,54 @@ int main()
     {
         Ray ray = GetMouseRay(GetMousePosition(), camera);
         bool usingGizmo = updateObjectTransformGizmo(camera);
-        
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !usingGizmo) {
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !usingGizmo)
+        {
             leftclick(ray);
         }
-        if(IsKeyPressed(KEY_F11)){ 
+        if (IsKeyPressed(KEY_F11))
+        {
             ToggleFullscreen();
             ShowCursor();
         }
-        
-        if (currentResIndex != lastResIndex) {
+        if (currentResIndex != lastResIndex)
+        {
             SetWindowSize(cr[currentResIndex].width, cr[currentResIndex].height);
             lastResIndex = currentResIndex;
         }
-
-        if (!usingGizmo) {
+        if (!usingGizmo)
+        {
             UpdateCameraController(camera);
+        }
+        UpdateLighting(camera);
+
+        if (HasShadowCastingPointLight())
+        {
+            for (int face = 0; face < GetPointShadowFaceCount(); face++)
+            {
+                BeginPointShadowMapFace(face);
+
+                Camera3D shadowCamera = GetPointShadowCamera(face);
+
+                BeginMode3D(shadowCamera);
+                    DrawSceneForShadowMap();
+                EndMode3D();
+
+                EndPointShadowMapFace();
+            }
         }
 
         BeginDrawing();
         ClearBackground(darkBackground);
+        BindPointShadowMaps();
         DrawCameraScene(camera);
         topBar(currentResIndex, dropdownEditmode);
-        if (IsKeyPressed(KEY_BACKSPACE)) {
+        if (IsKeyPressed(KEY_BACKSPACE))
+        {
             deleteobj();
         }
-        if(IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || mouseButtonPressed){
-            contextMenu(mouseButtonPressed, camera); // under InputHandler.cpp
+        if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || mouseButtonPressed)
+        {
+            contextMenu(mouseButtonPressed, camera);
         }
         
         EndDrawing();

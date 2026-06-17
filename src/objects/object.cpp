@@ -7,7 +7,8 @@
 #include "features/shadings/textures.h"
 #include "features/shadings/lighting.h"
 #include "data/save_load/saveNload.h"
-
+#include <iostream>
+#include "features/shadings/textures.h"
 static Model cubeModel;
 static Model sphereModel;
 static Model cylinderModel;
@@ -20,8 +21,7 @@ static ObjectInstance Cu[100];
 static ObjectInstance Sp[100];
 static ObjectInstance cy[100];
 
-// forward declaration to allow calls before definition
-static void DrawObjectModel(Model model, ObjectInstance obj, Color color);
+static void DrawObjectModel(Model &model, ObjectInstance obj, Color color);
 
 enum ObjectType { NONE, CUBE, SPHERE, CYLINDER };
 static ObjectType selectedType = NONE;
@@ -29,41 +29,246 @@ static int c = 0;
 static int s = 0;
 static int y = 0;
 static int totalSelectedCount = 0;
+
 void load(){
     loadScene(Cu, c, Sp, s, cy, y);
 }
 void save(){
     saveScene(Cu, c, Sp, s, cy, y);
 }
+static Mesh GenTexturedCylinder(float radius, float height, int slices)
+{
+    Mesh mesh = { 0 };
 
+    if (slices < 3) slices = 3;
+
+    float halfHeight = height * 0.5f;
+
+    int sideVertexCount = (slices + 1) * 2;
+    int topVertexCount = slices + 2;     
+    int bottomVertexCount = slices + 2;  
+    int totalVertexCount = sideVertexCount + topVertexCount + bottomVertexCount;
+
+    int sideTriangleCount = slices * 2;
+    int topTriangleCount = slices;
+    int bottomTriangleCount = slices;
+
+    int totalTriangleCount =
+        sideTriangleCount + topTriangleCount + bottomTriangleCount;
+
+    mesh.vertexCount = totalVertexCount;
+    mesh.triangleCount = totalTriangleCount;
+
+    mesh.vertices = (float*)MemAlloc(totalVertexCount * 3 * sizeof(float));
+    mesh.normals = (float*)MemAlloc(totalVertexCount * 3 * sizeof(float));
+    mesh.texcoords = (float*)MemAlloc(totalVertexCount * 2 * sizeof(float));
+    mesh.indices = (unsigned short*)MemAlloc(totalTriangleCount * 3 * sizeof(unsigned short));
+
+    int v = 0;
+
+    auto SetVertex = [&](int index, Vector3 position, Vector3 normal, Vector2 uv)
+    {
+        mesh.vertices[index * 3 + 0] = position.x;
+        mesh.vertices[index * 3 + 1] = position.y;
+        mesh.vertices[index * 3 + 2] = position.z;
+
+        mesh.normals[index * 3 + 0] = normal.x;
+        mesh.normals[index * 3 + 1] = normal.y;
+        mesh.normals[index * 3 + 2] = normal.z;
+
+        mesh.texcoords[index * 2 + 0] = uv.x;
+        mesh.texcoords[index * 2 + 1] = uv.y;
+    };
+
+    for (int i = 0; i <= slices; i++)
+    {
+        float t = (float)i / (float)slices;
+        float angle = t * 2.0f * PI;
+
+        float x = cosf(angle) * radius;
+        float z = sinf(angle) * radius;
+
+        Vector3 normal = Vector3Normalize({ x, 0.0f, z });
+
+        SetVertex(
+            v++,
+            { x, -halfHeight, z },
+            normal,
+            { t, 1.0f }
+        );
+
+        SetVertex(
+            v++,
+            { x, halfHeight, z },
+            normal,
+            { t, 0.0f }
+        );
+    }
+
+    int topCenterIndex = v;
+
+    SetVertex(
+        v++,
+        { 0.0f, halfHeight, 0.0f },
+        { 0.0f, 1.0f, 0.0f },
+        { 0.5f, 0.5f }
+    );
+
+    int topRingStart = v;
+
+    for (int i = 0; i <= slices; i++)
+    {
+        float t = (float)i / (float)slices;
+        float angle = t * 2.0f * PI;
+
+        float x = cosf(angle) * radius;
+        float z = sinf(angle) * radius;
+
+        float u = 0.5f + cosf(angle) * 0.5f;
+        float vv = 0.5f + sinf(angle) * 0.5f;
+
+        SetVertex(
+            v++,
+            { x, halfHeight, z },
+            { 0.0f, 1.0f, 0.0f },
+            { u, vv }
+        );
+    }
+
+    int bottomCenterIndex = v;
+
+    SetVertex(
+        v++,
+        { 0.0f, -halfHeight, 0.0f },
+        { 0.0f, -1.0f, 0.0f },
+        { 0.5f, 0.5f }
+    );
+
+    int bottomRingStart = v;
+
+    for (int i = 0; i <= slices; i++)
+    {
+        float t = (float)i / (float)slices;
+        float angle = t * 2.0f * PI;
+
+        float x = cosf(angle) * radius;
+        float z = sinf(angle) * radius;
+
+        float u = 0.5f + cosf(angle) * 0.5f;
+        float vv = 0.5f - sinf(angle) * 0.5f;
+
+        SetVertex(
+            v++,
+            { x, -halfHeight, z },
+            { 0.0f, -1.0f, 0.0f },
+            { u, vv }
+        );
+    }
+
+    int idx = 0;
+
+    auto AddTriangle = [&](unsigned short a, unsigned short b, unsigned short c)
+    {
+        mesh.indices[idx++] = a;
+        mesh.indices[idx++] = b;
+        mesh.indices[idx++] = c;
+    };
+
+    for (int i = 0; i < slices; i++)
+    {
+        unsigned short bottom0 = (unsigned short)(i * 2);
+        unsigned short top0 = (unsigned short)(i * 2 + 1);
+        unsigned short bottom1 = (unsigned short)((i + 1) * 2);
+        unsigned short top1 = (unsigned short)((i + 1) * 2 + 1);
+
+        AddTriangle(bottom0, top0, top1);
+        AddTriangle(bottom0, top1, bottom1);
+    }
+
+    for (int i = 0; i < slices; i++)
+    {
+        unsigned short ring0 = (unsigned short)(topRingStart + i);
+        unsigned short ring1 = (unsigned short)(topRingStart + i + 1);
+
+        AddTriangle(
+            (unsigned short)topCenterIndex,
+            ring1,
+            ring0
+        );
+    }
+
+    for (int i = 0; i < slices; i++)
+    {
+        unsigned short ring0 = (unsigned short)(bottomRingStart + i);
+        unsigned short ring1 = (unsigned short)(bottomRingStart + i + 1);
+
+        AddTriangle(
+            (unsigned short)bottomCenterIndex,
+            ring0,
+            ring1
+        );
+    }
+
+    return mesh;
+}
 void initModels()
 {
     InitLighting();
 
     Mesh cubeMesh = GenMeshCube(2.0f, 2.0f, 2.0f);
+    GenMeshTangents(&cubeMesh);
     cubeModel = LoadModelFromMesh(cubeMesh);
     Cubebounds = GetModelBoundingBox(cubeModel);
 
     Mesh sphereMesh = GenMeshSphere(1.0f, 32, 32);
+    GenMeshTangents(&sphereMesh);
     sphereModel = LoadModelFromMesh(sphereMesh);
     Spherebounds = GetModelBoundingBox(sphereModel);
 
-    Mesh cylinderMesh = GenMeshCylinder(1.0f, 2.0f, 32);
+    Mesh cylinderMesh = GenTexturedCylinder(1.0f, 2.0f, 64);
+    GenMeshTangents(&cylinderMesh);
+    UploadMesh(&cylinderMesh, false);
+
     cylinderModel = LoadModelFromMesh(cylinderMesh);
     Cylinderbounds = GetModelBoundingBox(cylinderModel);
+    LoadPBRTextures();
 
     ApplyLightingShader(cubeModel);
     ApplyLightingShader(sphereModel);
     ApplyLightingShader(cylinderModel);
 
-    LoadObjectTextures();
 
-    ApplyMetalTexture(cubeModel);
-    ApplyMetalTexture(sphereModel);
-    ApplyMetalTexture(cylinderModel);
     load();
 }
+void DrawSceneForShadowMap()
+{
+    Shader shadowShader = GetShadowShader();
 
+    cubeModel.materials[0].shader = shadowShader;
+    sphereModel.materials[0].shader = shadowShader;
+    cylinderModel.materials[0].shader = shadowShader;
+
+    for (int i = 0; i < c; i++)
+    {
+        DrawObjectModel(cubeModel, Cu[i], WHITE);
+    }
+
+    for (int i = 0; i < s; i++)
+    {
+        if (Sp[i].isLight) continue;
+
+        DrawObjectModel(sphereModel, Sp[i], WHITE);
+    }
+
+    for (int i = 0; i < y; i++)
+    {
+        DrawObjectModel(cylinderModel, cy[i], WHITE);
+    }
+
+    ApplyLightingShader(cubeModel);
+    ApplyLightingShader(sphereModel);
+    ApplyLightingShader(cylinderModel);
+}
 
 void cube(const Vector3 pos,Color color) {
     if (c < 100) {
@@ -72,6 +277,7 @@ void cube(const Vector3 pos,Color color) {
         Cu[c].scale = { 1.0f, 1.0f, 1.0f };
         Cu[c].color = color;
         Cu[c].isSelected = false;
+        Cu[c].material = MATERIAL_WOOD;
         c++;
     }
 }
@@ -83,6 +289,7 @@ void sphere(const Vector3 pos,Color color){
         Sp[s].scale = Vector3{1.0f, 1.0f, 1.0f};
         Sp[s].color = color;
         Sp[s].isSelected = false;
+        Sp[s].material = MATERIAL_WOOD;
         s++;
     }
 }
@@ -94,6 +301,7 @@ void cylinder(const Vector3 pos,Color color){
         cy[y].scale = Vector3{1.0f, 1.0f, 1.0f};
         cy[y].color = color;
         cy[y].isSelected = false;
+        cy[y].material = MATERIAL_WOOD;
         y++;
     }
 }
@@ -200,20 +408,42 @@ void leftclick(Ray ray){
         for(int i=0; i<y; i++) if (cy[i].isSelected) totalSelectedCount++;
     
 }
-static void DrawObjectModel(Model model, ObjectInstance obj, Color color) {
-    rlPushMatrix();
+static Matrix GetObjectTransform(ObjectInstance obj)
+{
+    Matrix matScale = MatrixScale(
+        obj.scale.x,
+        obj.scale.y,
+        obj.scale.z
+    );
 
-        rlTranslatef(obj.position.x, obj.position.y, obj.position.z);
+    Matrix matRotation = MatrixRotateXYZ({
+        DEG2RAD * obj.rotation.x,
+        DEG2RAD * obj.rotation.y,
+        DEG2RAD * obj.rotation.z
+    });
 
-        rlRotatef(obj.rotation.x, 1.0f, 0.0f, 0.0f);
-        rlRotatef(obj.rotation.y, 0.0f, 1.0f, 0.0f);
-        rlRotatef(obj.rotation.z, 0.0f, 0.0f, 1.0f);
+    Matrix matTranslation = MatrixTranslate(
+        obj.position.x,
+        obj.position.y,
+        obj.position.z
+    );
 
-        rlScalef(obj.scale.x, obj.scale.y, obj.scale.z);
+    Matrix transform = MatrixMultiply(
+        MatrixMultiply(matScale, matRotation),
+        matTranslation
+    );
 
-        DrawModel(model, { 0.0f, 0.0f, 0.0f }, 1.0f, color);
+    return transform;
+}
 
-    rlPopMatrix();
+static void DrawObjectModel(Model& model, ObjectInstance obj, Color color)
+{
+    ApplyPBRMaterial(model, obj.material);
+
+    Model tempModel = model;
+    tempModel.transform = GetObjectTransform(obj);
+
+    DrawModel(tempModel, { 0.0f, 0.0f, 0.0f }, 1.0f, color);
 }
 bool updateObjectTransformGizmo(Camera3D camera) {
     return UpdateTransformGizmo(

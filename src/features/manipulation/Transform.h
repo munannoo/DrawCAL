@@ -1,17 +1,18 @@
 #ifndef TRANSFORM_H
 #define TRANSFORM_H
 #include<raylib.h>
-
+#include "features/shadings/textures.h"
 struct ObjectInstance {
     Vector3 position;
     Vector3 rotation;
     Vector3 scale;
     Color color;
     bool isSelected;
-
     bool isLight = false;
     int lightIndex = -1;
+    MaterialType material = MATERIAL_WOOD;
 };
+
 typedef enum GizmoState {
     GIZMO_NONE = 0,
 
