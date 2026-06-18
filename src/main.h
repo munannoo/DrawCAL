@@ -14,20 +14,7 @@
 
 #include "rendering/resolution.h" // resolution indices
 
-//enum Scene_Learn
-//{
-//	LEARN_NONE = 0,
-//	LEARN_FREEDRAW,
-//	LEARN_GUIDED,
-//	LEARN_TUTORIAL
-//};
-//
-//enum Scene_State
-//{
-//	SCENE_NONE = 0,
-//	SCENE_LEARN_MODE,
-//	SCENE_CONTROLS_MODE
-//};
+extern bool exitWindow; // Use exitWindow for added functionality alongside the main menu exit button
 
 #endif // main_h
 

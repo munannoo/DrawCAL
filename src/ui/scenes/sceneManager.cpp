@@ -3,8 +3,8 @@
 #include "sceneManager.h"
 
 // Ready structures that will take in the function names
-sceneFunctions scenes[sceneCount];
-sceneFunctions learnScenes[learnSceneCount];
+sceneFunctions scenes[static_cast<int>(sceneId::SCENE_COUNT)];
+sceneFunctions learnScenes[static_cast<int>(learnSceneId::LEARN_COUNT)];
 
 // Define global buttons and state variables (single definition)
 Rectangle btnPlay, btnEditor, btnOptions, btnExit;
@@ -20,10 +20,9 @@ sceneId currentScene = sceneId::SCENE_NONE;
 sceneId pendingScene = sceneId::SCENE_NONE;
 learnSceneId currentLearnScene = learnSceneId::LEARN_NONE;
 learnSceneId pendingLearnScene = learnSceneId::LEARN_NONE;
-
-bool sceneInitialized = false;
-bool learnSceneInitialized = false;
 	
+bool sceneInitialized = false; 
+
 void sceneManagerInit() {
 	changeButtonResolution();
 
@@ -36,13 +35,14 @@ void sceneManagerInit() {
 	learnScenes[static_cast<int>(learnSceneId::LEARN_FREEDRAW)] = { freeDrawInit, freeDrawUpdate, freeDrawDraw, freeDrawUnload };
 	learnScenes[static_cast<int>(learnSceneId::LEARN_GUIDED)] = { NULL, NULL, NULL, NULL }; // Placeholder for Guided learning mode
 	learnScenes[static_cast<int>(learnSceneId::LEARN_TUTORIAL)] = { NULL, NULL, NULL, NULL }; // Placeholder for Tutorial learning mode
-	learnScenes[static_cast<int>(learnSceneId::LEARN_EXIT)] = { NULL, NULL, NULL, NULL }; // Placeholder for exiting learn mode back to main menu
 
 	// Initialise current scene
 	currentScene = sceneId::SCENE_MENU;
 	if (scenes[static_cast<int>(currentScene)].Init) scenes[static_cast<int>(currentScene)].Init();
 	sceneInitialized = true;
 }
+
+// Maybe can template this but idk how
 
 void sceneManagerChangeScene(sceneId newScene) {
 	pendingScene = newScene;
@@ -51,6 +51,8 @@ void sceneManagerChangeScene(sceneId newScene) {
 void sceneManagerChangeScene(learnSceneId newLearnScene) {
 	pendingLearnScene = newLearnScene;
 }
+
+
 
 static void resolveMainSceneChanges() {
 	// Handle scene switching; exiting out of main menu
@@ -86,23 +88,12 @@ void sceneManagerUpdate() {
 	resolveMainSceneChanges();
 	resolveLearnSceneChanges();
 
-	if (currentScene == sceneId::SCENE_EXIT)
-	{
-		CloseWindow();
-	}
-
 	if (currentScene == sceneId::SCENE_MENU) {
 		if (scenes[static_cast<int>(currentScene)].Update) scenes[static_cast<int>(currentScene)].Update(); // Update the main menu if we are under the main menu
 	}
 
 	// Under Learn Scene, we don't use any flags for if we are under the Learn Scene, our flag is currentScene itself
 	if (currentScene == sceneId::SCENE_LEARN) {
-
-		if (currentLearnScene == learnSceneId::LEARN_EXIT)
-		{
-			pendingScene = sceneId::SCENE_MENU;
-			currentLearnScene = learnSceneId::LEARN_NONE;
-		}
 
 		if (currentLearnScene != learnSceneId::LEARN_NONE) // Update only if we select something
 		{

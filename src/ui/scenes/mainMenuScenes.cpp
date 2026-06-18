@@ -15,7 +15,10 @@ void menuUpdate() {
 	if (clickedButton(btnPlay)) sceneManagerChangeScene(sceneId::SCENE_LEARN);
 	if (clickedButton(btnOptions)) sceneManagerChangeScene(sceneId::SCENE_OPTIONS);
 	if (clickedButton(btnEditor)) sceneManagerChangeScene(sceneId::SCENE_LEARN);
-
+	if (clickedButton(btnExit)) {
+		menuUnload();
+		exitWindow = true;
+	}
 }
 
 void menuDraw() {

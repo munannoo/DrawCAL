@@ -3,6 +3,7 @@
 int currentResIndex = static_cast<int>(resolutionIndex::RES_720p); // Used Enum from toolbar.h for readibility, better than just a 2
 int lastResIndex = currentResIndex;
 
+bool exitWindow = false;
 int main()
 {   
     SetConfigFlags(FLAG_VSYNC_HINT); // Enable vsync
@@ -18,8 +19,9 @@ int main()
     initModels(); // Initialize the Models, only needs to be called once
                
     // Main loop (Runs each frame until the window closes)
-    while (!WindowShouldClose())
+    while (!exitWindow)
     {
+        if (WindowShouldClose()) exitWindow = true;
 		sceneManagerUpdate(); // Update the current scene, also handles scene switching
 
 

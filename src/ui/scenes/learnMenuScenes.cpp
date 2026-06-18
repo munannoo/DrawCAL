@@ -19,7 +19,10 @@ void learnMenuUpdate() {
 	if (clickedButton(btnFreeDraw)) sceneManagerChangeScene(learnSceneId::LEARN_FREEDRAW);
 	if (clickedButton(btnGuided)) sceneManagerChangeScene(learnSceneId::LEARN_GUIDED);
 	if (clickedButton(btnTutorial)) sceneManagerChangeScene(learnSceneId::LEARN_TUTORIAL);
-	if (clickedButton(btnBack)) sceneManagerChangeScene(learnSceneId::LEARN_EXIT);
+	if (clickedButton(btnBack)) {
+		pendingScene = sceneId::SCENE_MENU;
+		currentLearnScene = learnSceneId::LEARN_NONE;
+	}
 }
 
 void learnMenuDraw() {
