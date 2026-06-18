@@ -6,17 +6,17 @@
 #include <raylib.h>
 extern Camera3D camera;
 extern Model model;
-static Vector2 clickPos = { 0.0f, 0.0f };
-static Vector3 objPosn = { 0.0f, 0.0f, 0.0f };
+ Vector2 clickPos = { 0.0f, 0.0f };
+ Vector3 objPosn = { 0.0f, 0.0f, 0.0f };
 void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
 {
-    static int mainFocused = -1;
-    static int mainActive = -1;
+     int mainFocused = -1;
+     int mainActive = -1;
 
-    static int subActive = -1;
+     int subActive = -1;
     char** submenuText = NULL;
     int subMenuSize = 0; // size of submenu, used to calculate height of submenu box
-    static int state = STATE_BASE;
+     int state = STATE_BASE;
     Rectangle menuRec = { 0, 0, 100, 180 };
 
     // We will use a large plane to get the position of the ray collision, as we want to place objects on the "ground"
@@ -24,13 +24,15 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
     Vector3 p1 = { -planeSize, 0.0f, -planeSize };
     Vector3 p2 = { planeSize, 0.0f, -planeSize };
     Vector3 p3 = { planeSize, 0.0f,  planeSize };
-    Vector3 p4 = { -planeSize, 0.0f,  planeSize };
+    Vector3 p4 = { -planeSize, 0.0f,  planeSize }; 
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
         mouseButtonPressed = true;
 
         clickPos = GetMousePosition();
-        Ray ray = GetMouseRay(clickPos, camera); // creating an object ray from raylib, that will project a ray from the camera to the coordinates to get a #D position
+		// GetMouseRay identifier not found, so replaced with GetScreenToWorldRay, which does the same thing but takes screen coordinates and camera as input
+		Ray ray = GetScreenToWorldRay(clickPos, camera);
+        //Ray ray = GetMouseRay(clickPos, camera); // creating an object ray from raylib, that will project a ray from the camera to the coordinates to get a #D position
         RayCollision collision = GetRayCollisionQuad(ray, p1, p2, p3, p4);
         if (collision.hit) {
             objPosn = collision.point;

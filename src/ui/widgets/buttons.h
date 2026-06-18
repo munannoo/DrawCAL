@@ -3,8 +3,8 @@
 
 #include "raylib.h"
 
-bool button(Rectangle r, const char* label);
+void drawButton(Rectangle r, const char* label);
 
-//void createObj(Vector3 pos);
+bool clickedButton(Rectangle r);
 
 #endif // button_h

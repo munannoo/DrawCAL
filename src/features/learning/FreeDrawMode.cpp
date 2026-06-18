@@ -1,8 +1,11 @@
 #include "FreeDrawMode.h"
-#include <raygui.h>
+#include "raylib.h"
+#include "raygui.h"
+
 
 void freeDrawInit() {
-    TraceLog(LOG_INFO, "freeDrawInit called");
+	TraceLog(LOG_INFO, "Initializing Free Draw Mode Scene");
+    TraceLog(LOG_INFO, "%d", static_cast<int>(currentScene));
 	if (freeDrawState.initiliased) return; // Prevent reinitialization if already initialized
     InitTransformGizmo(); // Initialize the transform gizmo, only needs to be called once
 	InitCamera(freeDrawState.camera);
@@ -17,7 +20,6 @@ void freeDrawInit() {
 }
 
 void freeDrawUpdate() {
-    TraceLog(LOG_INFO, "freeDrawUpdate called");
 
 	if (!freeDrawState.initiliased) return; // Prevent update if not initialized
     if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && freeDrawState.check == 0) {
@@ -30,7 +32,9 @@ void freeDrawUpdate() {
     }
     bool usingGizmo = updateObjectTransformGizmo(freeDrawState.camera);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !usingGizmo) {
-        Ray ray = GetMouseRay(GetMousePosition(), freeDrawState.camera);
+        // GetMouseRay identifier not found, so replaced with GetScreenToWorldRay, which does the same thing but takes screen coordinates and camera as input
+		Ray ray = GetScreenToWorldRay(GetMousePosition(), freeDrawState.camera);
+        //Ray ray = GetMouseRay(GetMousePosition(), freeDrawState.camera);
         leftclick(ray);
     }
 
@@ -48,10 +52,10 @@ void freeDrawUpdate() {
         ShowCursor();
     }
 
-    if (currentResIndex != lastResIndex) {
-        SetWindowSize(cr[currentResIndex].width, cr[currentResIndex].height);
-        lastResIndex = currentResIndex;
-    }
+    //if (currentResIndex != lastResIndex) {
+    //    SetWindowSize(cr[currentResIndex].width, cr[currentResIndex].height);
+    //    lastResIndex = currentResIndex;
+    //}
 
     if (!usingGizmo) {
         if (!freeDrawState.cameraLocked) UpdateCameraController(freeDrawState.camera);
@@ -122,8 +126,6 @@ void freeDrawDraw() {
     if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || freeDrawState.mouseButtonPressed) {
         contextMenu(freeDrawState.mouseButtonPressed, freeDrawState.camera); // under InputHandler.cpp
     }
-    TraceLog(LOG_INFO, "freeDrawDRAW called");
-
 }
 
 void freeDrawUnload() {

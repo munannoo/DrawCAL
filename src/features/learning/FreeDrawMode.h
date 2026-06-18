@@ -1,12 +1,12 @@
 #ifndef FreeDrawMode_H
 #define FreeDrawMode_H
+
 #include "raylib.h"
 #include "main.h"
 #include "features/shadings/textures.h"
 #include "features/camera/CameraController.h"
 #include "rendering/renderer.h"
 #include "input/InputHandler.h"
-#include "ui/panels/toolbar.h"
 #include "ui/widgets/buttons.h"
 #include "objects/object.h"
 #include "features/manipulation/Transform.h"

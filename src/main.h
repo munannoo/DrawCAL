@@ -6,15 +6,13 @@
 #include "features/camera/CameraController.h"
 #include "rendering/renderer.h"
 #include "input/InputHandler.h"
-#include "ui/panels/toolbar.h"
 #include "ui/widgets/buttons.h"
 #include "objects/object.h"
 #include "features/manipulation/Transform.h"
 #include "features/learning/FreeDrawMode.h"
 #include "ui/scenes/sceneManager.h"
 
-extern int currentResIndex;
-extern int lastResIndex;
+#include "rendering/resolution.h" // resolution indices
 
 //enum Scene_Learn
 //{

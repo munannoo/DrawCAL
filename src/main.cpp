@@ -1,6 +1,6 @@
 #include "main.h"
 
-int currentResIndex = RES_720p; // Used Enum from toolbar.h for readibility, better than just a 2
+int currentResIndex = static_cast<int>(resolutionIndex::RES_720p); // Used Enum from toolbar.h for readibility, better than just a 2
 int lastResIndex = currentResIndex;
 
 int main()
@@ -11,7 +11,7 @@ int main()
     bool dropdownEditmode = false;
     bool mouseButtonPressed = false; 
 
-    InitWindow(cr[currentResIndex].width, cr[currentResIndex].height, "DrawCAL"); 
+    InitWindow(resolutions[currentResIndex].width, resolutions[currentResIndex].height, "DrawCAL"); 
 
 	sceneManagerInit(); // Initialize the scene manager, only needs to be called once
 
