@@ -72,16 +72,26 @@ static void resolveMainSceneChanges() {
 	}
 }
 
-static void resolveLearnSceneChanges() {
-	// Handle scene switching; going from learn menu to learn subscene or exiting out of learn mode back to main menu
-	if (pendingLearnScene != learnSceneId::LEARN_NONE) {
-		// Unload current scene
-		if (learnScenes[static_cast<int>(currentLearnScene)].Unload) learnScenes[static_cast<int>(currentLearnScene)].Unload(); // Execute only if function is executable
-		currentLearnScene = pendingLearnScene;
-		pendingLearnScene = learnSceneId::LEARN_NONE;
-		// Initialize new scene
-		if (learnScenes[static_cast<int>(currentLearnScene)].Init) learnScenes[static_cast<int>(currentLearnScene)].Init();
-	}
+static void resolveLearnSceneChanges()
+{
+    if (pendingLearnScene != learnSceneId::LEARN_NONE)
+    {
+        if (currentLearnScene != learnSceneId::LEARN_NONE)
+        {
+            if (learnScenes[static_cast<int>(currentLearnScene)].Unload)
+            {
+                learnScenes[static_cast<int>(currentLearnScene)].Unload();
+            }
+        }
+
+        currentLearnScene = pendingLearnScene;
+        pendingLearnScene = learnSceneId::LEARN_NONE;
+
+        if (learnScenes[static_cast<int>(currentLearnScene)].Init)
+        {
+            learnScenes[static_cast<int>(currentLearnScene)].Init();
+        }
+    }
 }
 
 void sceneManagerUpdate() {
