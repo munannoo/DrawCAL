@@ -1,4 +1,10 @@
-#include "rendering/resolution.h"
+#include "resolution.h"
+#include "raylib.h"
+#include "raygui.h"
+
+// Needed because btnWidth, btnHeight, btnLeft, btnTop, btnGap
+// are declared extern in sceneManager.h
+#include "ui/scenes/sceneManager.h"
 
 const resolutionClass resolutions[5] = {
     {1280, 720, "720p (HD)" },
@@ -8,18 +14,29 @@ const resolutionClass resolutions[5] = {
     {2560, 1600, "1600p (WQXGA)" }
 };
 
+void changeButtonResolution() {
+    btnWidth  = GetScreenWidth() * 0.16f;
+    btnHeight = GetScreenHeight() * 0.07f;
+    btnLeft   = GetScreenWidth() * 0.08f;
+    btnTop    = GetScreenHeight() * 0.14f;
+    btnGap    = btnHeight * 1.25f;
+}
+
 void topBar(int& activeRes, bool& dropdownEditMode) {
-    resolutionClass r = resolutions[static_cast<int>(resolutionIndex::RES_720p)];
-    const char* options = "720p (HD);900p (HD+);1080p (Full HD);1440p (Quad HD);1600p (WQXGA)";
+    const char* options =
+        "720p (HD);900p (HD+);1080p (Full HD);1440p (Quad HD);1600p (WQXGA)";
+
+    int oldRes = activeRes;
+
     if (GuiDropdownBox(Rectangle{ 10, 5, 200, 30 }, options, &activeRes, dropdownEditMode)) {
         dropdownEditMode = !dropdownEditMode;
     }
-}
 
-void changeButtonResolution() {
-     btnWidth = int(GetScreenWidth() * 0.16f);   // 16% of width
-     btnHeight = int(GetScreenHeight() * 0.07f);   // 7% of height
-     btnLeft = int(GetScreenWidth() * 0.08f);  // 8% margin from left
-     btnTop = int(GetScreenHeight() * 0.14f);  // starting top
-     btnGap = int(btnHeight * 1.25f);
+    if (activeRes != oldRes) {
+        resolutionClass selected = resolutions[activeRes];
+
+        SetWindowSize(selected.width, selected.height);
+
+        changeButtonResolution();
+    }
 }

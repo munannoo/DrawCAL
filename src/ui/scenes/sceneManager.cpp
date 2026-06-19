@@ -9,6 +9,7 @@ sceneFunctions learnScenes[static_cast<int>(learnSceneId::LEARN_COUNT)];
 // Define global buttons and state variables (single definition)
 Rectangle btnPlay, btnEditor, btnOptions, btnExit;
 Rectangle btnFreeDraw, btnGuided, btnTutorial, btnBack;
+Rectangle btnGraphics, btnControls, btnInterface;
 
 float btnWidth;
 float btnHeight;

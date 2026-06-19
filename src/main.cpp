@@ -24,15 +24,10 @@ int main()
         if (WindowShouldClose()) exitWindow = true;
 		sceneManagerUpdate(); // Update the current scene, also handles scene switching
 
-
-
         BeginDrawing();
         ClearBackground(RAYWHITE);
         sceneManagerDraw(); // Draw the current scene
 
-
-
-        
         EndDrawing();
     }
     Unload();

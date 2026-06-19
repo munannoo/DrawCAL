@@ -36,7 +36,7 @@ struct sceneFunctions {
 };
 
 
-
+extern Rectangle btnGraphics, btnControls, btnInterface;
 extern Rectangle btnPlay, btnEditor, btnOptions, btnExit;
 extern Rectangle btnFreeDraw, btnGuided, btnTutorial, btnBack;
 
