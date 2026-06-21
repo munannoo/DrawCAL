@@ -7,7 +7,6 @@
 #include "features/camera/CameraController.h"
 #include "rendering/renderer.h"
 #include "input/InputHandler.h"
-#include "ui/widgets/buttons.h"
 #include "objects/object.h"
 #include "features/manipulation/Transform.h"
 #include "features/learning/FreeDrawMode.h"
@@ -26,6 +25,7 @@ static struct freeDrawState {
 	int lastViewIndex;   // used to detect changes
 	bool viewDropdownOpen;
 	bool cameraLocked;   // when true, camera controller movement is disabled (only zoom allowed)
+	bool helpTip;
 } freeDrawState;
 
 void freeDrawInit();

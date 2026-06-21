@@ -38,6 +38,41 @@ void initModels(){
     cylinderModel = LoadModelFromMesh(cylinderMesh);
     Cylinderbounds = GetModelBoundingBox(cylinderModel);
 }
+bool getFirstSelected(ObjectInstance* out, int* outType, int* outIndex) {
+    for (int i = 0; i < c; i++) {
+        if (Cu[i].isSelected) {
+            if (out) *out = Cu[i];
+            if (outType) *outType = 1;
+            if (outIndex) *outIndex = i;
+            return true;
+        }
+    }
+    for (int i = 0; i < s; i++) {
+        if (Sp[i].isSelected) {
+            if (out) *out = Sp[i];
+            if (outType) *outType = 2;
+            if (outIndex) *outIndex = i;
+            return true;
+        }
+    }
+    for (int i = 0; i < y; i++) {
+        if (cy[i].isSelected) {
+            if (out) *out = cy[i];
+            if (outType) *outType = 3;
+            if (outIndex) *outIndex = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+int getTotalSelectedCount() {
+    int total = 0;
+    for (int i = 0; i < c; i++) if (Cu[i].isSelected) total++;
+    for (int i = 0; i < s; i++) if (Sp[i].isSelected) total++;
+    for (int i = 0; i < y; i++) if (cy[i].isSelected) total++;
+    return total;
+}
 
 
 void cube(const Vector3 pos) {

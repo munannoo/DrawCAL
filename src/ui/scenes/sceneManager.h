@@ -1,8 +1,9 @@
+// Don't forget to initialise all externs in sceneManager.cpp
+
 #ifndef SCENE_MANAGER
 #define SCENE_MANAGER
 
 #include "raylib.h"
-#include "ui/widgets/buttons.h" // has button function for rendering buttons
 
 
 // modularised functions so that everything will be organised
@@ -25,7 +26,12 @@ enum class graphicsSceneId { GRAPHICS_NONE = -1, GRAPHICS_MENU = 0, GRAPHICS_RES
 enum class controlsSceneId { CONTROLS_NONE = -1, CONTROLS_MENU = 0, CONTROLS_REMAPPING, CONTROLS_SENSITIVITY, CONTROL_GUIDELINES, CONTROLS_COUNT };
 enum class interfaceSceneId { INTERFACE_NONE = -1, INTERFACE_MENU = 0, INTERFACE_THEME, INTERFACE_FONTS, INTERFACE_COUNT };
 
-
+extern sceneId currentScene, pendingScene;
+extern learnSceneId currentLearnScene, pendingLearnScene;
+extern optionSceneId currentOptionScene, pendingOptionScene;
+extern graphicsSceneId currentGraphicsScene, pendingGraphicsScene;
+extern controlsSceneId currentControlsScene, pendingControlsScene;
+extern interfaceSceneId currentInterfaceScene, pendingInterfaceScene;
 
 // have function pointers inside structures so that all 4 functions may be executed via the struct
 struct sceneFunctions {
@@ -35,10 +41,12 @@ struct sceneFunctions {
     void (*Unload)();
 };
 
-
-
 extern Rectangle btnPlay, btnEditor, btnOptions, btnExit;
 extern Rectangle btnFreeDraw, btnGuided, btnTutorial, btnBack;
+extern Rectangle btnGraphics, btnControls, btnInterface;
+extern Rectangle btnResolution, btnVSync, btnFullScreen;
+extern Rectangle btnUIScale, btnTheme, btnFontSize, btnBack;
+
 
 extern float btnWidth;   
 extern float btnHeight;  
@@ -46,12 +54,7 @@ extern float btnLeft;
 extern float btnTop;     
 extern float btnGap;     // initialized in sceneManager.cpp
 
-extern sceneId currentScene, pendingScene;
-extern learnSceneId currentLearnScene, pendingLearnScene;
-extern optionSceneId currentOptionScene, pendingOptionScene;
-extern graphicsSceneId currentGraphicsScene, pendingGraphicsScene;
-extern controlsSceneId currentControlsScene, pendingControlsScene;
-extern interfaceSceneId currentInterfaceScene, pendingInterfaceScene;
+
 
 extern bool sceneInitialized;
   

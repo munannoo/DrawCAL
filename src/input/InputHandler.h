@@ -2,6 +2,9 @@
 #define INPUT_HANDLER_H
 
 #include "raylib.h"
+#include  "raygui.h"
+#include "objects/object.h"
+#include "cstring"
 
 void contextMenu(bool& mouseButtonPressed, Camera3D& camera);
 

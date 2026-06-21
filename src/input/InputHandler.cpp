@@ -1,9 +1,5 @@
 #include "InputHandler.h"
-#include "../ui/widgets/buttons.h"
-#include  <raygui.h>
-#include <objects/object.h>
-#include <cstring>
-#include <raylib.h>
+
 extern Camera3D camera;
 extern Model model;
  Vector2 clickPos = { 0.0f, 0.0f };

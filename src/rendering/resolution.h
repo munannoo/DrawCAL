@@ -26,8 +26,6 @@ enum class resolutionIndex {
 
 extern const resolutionClass resolutions[5];
 
-void topBar(int& activeRes, bool& dropdownEditMode);
-
 void changeButtonResolution();
 
 #endif // resolution_h

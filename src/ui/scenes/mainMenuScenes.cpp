@@ -12,18 +12,15 @@ void menuUnload() {
 }
 
 void menuUpdate() {
-	if (clickedButton(btnPlay)) sceneManagerChangeScene(sceneId::SCENE_LEARN);
-	if (clickedButton(btnOptions)) sceneManagerChangeScene(sceneId::SCENE_OPTIONS);
-	if (clickedButton(btnEditor)) sceneManagerChangeScene(sceneId::SCENE_LEARN);
-	if (clickedButton(btnExit)) {
-		menuUnload();
-		exitWindow = true;
-	}
+
 }
 
 void menuDraw() {
 	DrawText("DrawCAL", btnLeft, btnTop - 1 * btnGap, 20, BLACK);
-	drawButton(btnPlay, "Learn");
-	drawButton(btnOptions, "Options");
-	drawButton(btnExit, "Exit");
+	if (GuiButton(btnPlay, "Learn")) sceneManagerChangeScene(sceneId::SCENE_LEARN);
+	if (GuiButton(btnOptions, "Options")) { sceneManagerChangeScene(sceneId::SCENE_OPTIONS); TraceLog(LOG_INFO, "Clicked %d", pendingScene); }
+	if (GuiButton(btnExit, "Exit")) {
+		menuUnload();
+		exitWindow = true;
+	}
 }
