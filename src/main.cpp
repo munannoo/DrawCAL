@@ -33,9 +33,6 @@ int main()
         ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
         sceneManagerDraw(); // Draw the current scene
 
-
-
-        
         EndDrawing();
     }
     Unload();

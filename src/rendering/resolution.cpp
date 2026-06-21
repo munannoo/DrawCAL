@@ -1,4 +1,10 @@
-#include "rendering/resolution.h"
+#include "resolution.h"
+#include "raylib.h"
+#include "raygui.h"
+
+// Needed because btnWidth, btnHeight, btnLeft, btnTop, btnGap
+// are declared extern in sceneManager.h
+#include "ui/scenes/sceneManager.h"
 
 const resolutionClass resolutions[5] = {
     {1280, 720, "720p (HD)" },
