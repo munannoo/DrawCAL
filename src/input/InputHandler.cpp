@@ -45,7 +45,8 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
     char* rootMenu[] = {
         "Insert Mesh",
         "Object Editing",
-        "Delete Object"
+        "Delete Object",
+        "Toggle Raytracing"
     };
     char* addMesh[] = {
         "Insert Cube",
@@ -56,7 +57,8 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
     enum rootMenuIndex {
         Menu_InsertMesh = 0,
         Menu_ObjectEditing,
-        Menu_DeleteObject
+        Menu_DeleteObject,
+        Menu_ToggleRaytracing
     };
 
 
@@ -91,6 +93,13 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
         if(focused == Menu_DeleteObject)
         {
             deleteobj();
+            state = STATE_BASE;
+            mainFocused = mainActive = subActive = -1;
+            mouseButtonPressed = false;
+        }
+        if(focused == Menu_ToggleRaytracing)
+        {
+            ToggleRayTracing();
             state = STATE_BASE;
             mainFocused = mainActive = subActive = -1;
             mouseButtonPressed = false;

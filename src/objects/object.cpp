@@ -240,6 +240,31 @@ void initModels()
 
     load();
 }
+void UploadSceneToRayTracer()
+{
+    BeginRayTraceSceneUpload();
+
+    for (int i = 0; i < c; i++)
+    {
+        AddRayTraceCube(Cu[i].position, Cu[i].rotation, Cu[i].scale);
+    }
+
+    for (int i = 0; i < s; i++)
+    {
+        // Light markers are visible spheres, but they should not block their own light.
+        if (Sp[i].isLight) continue;
+
+        AddRayTraceSphere(Sp[i].position, Sp[i].scale);
+    }
+
+    for (int i = 0; i < y; i++)
+    {
+        AddRayTraceCylinder(cy[i].position, cy[i].rotation, cy[i].scale);
+    }
+
+    EndRayTraceSceneUpload();
+}
+
 void DrawSceneForShadowMap()
 {
     Shader shadowShader = GetShadowShader();

@@ -6,8 +6,9 @@
 
 #include <iostream>
 #include <cmath>
+#include <float.h>
 
-#define MAX_SHADER_LIGHTS 16
+#define MAX_SHADER_LIGHTS 64
 
 static Shader lightingShader = { 0 };
 static Shader shadowShader = { 0 };
@@ -22,6 +23,38 @@ static int lightPositionsLoc[MAX_SHADER_LIGHTS];
 static int lightColorsLoc[MAX_SHADER_LIGHTS];
 static int lightIntensitiesLoc[MAX_SHADER_LIGHTS];
 static int lightRadiiLoc[MAX_SHADER_LIGHTS];
+
+static int rayTracingEnabledLoc = -1;
+
+static int rtCubeCountLoc = -1;
+static int rtCubePositionsLoc[MAX_RAYTRACE_OBJECTS];
+static int rtCubeRotationsLoc[MAX_RAYTRACE_OBJECTS];
+static int rtCubeScalesLoc[MAX_RAYTRACE_OBJECTS];
+
+static int rtSphereCountLoc = -1;
+static int rtSpherePositionsLoc[MAX_RAYTRACE_OBJECTS];
+static int rtSphereScalesLoc[MAX_RAYTRACE_OBJECTS];
+
+static int rtCylinderCountLoc = -1;
+static int rtCylinderPositionsLoc[MAX_RAYTRACE_OBJECTS];
+static int rtCylinderRotationsLoc[MAX_RAYTRACE_OBJECTS];
+static int rtCylinderScalesLoc[MAX_RAYTRACE_OBJECTS];
+
+static bool rayTracingEnabled = true;
+
+static Vector3 rtCubePositions[MAX_RAYTRACE_OBJECTS];
+static Vector3 rtCubeRotations[MAX_RAYTRACE_OBJECTS];
+static Vector3 rtCubeScales[MAX_RAYTRACE_OBJECTS];
+static int rtCubeCount = 0;
+
+static Vector3 rtSpherePositions[MAX_RAYTRACE_OBJECTS];
+static Vector3 rtSphereScales[MAX_RAYTRACE_OBJECTS];
+static int rtSphereCount = 0;
+
+static Vector3 rtCylinderPositions[MAX_RAYTRACE_OBJECTS];
+static Vector3 rtCylinderRotations[MAX_RAYTRACE_OBJECTS];
+static Vector3 rtCylinderScales[MAX_RAYTRACE_OBJECTS];
+static int rtCylinderCount = 0;
 
 static SceneLight sceneLights[MAX_SCENE_LIGHTS];
 static int sceneLightCount = 0;
@@ -55,6 +88,64 @@ static int shadowCameraFadeRangeLoc = -1;
 
 static int pointShadowMapLoc[6] = { -1, -1, -1, -1, -1, -1 };
 static int pointLightSpaceMatricesLoc[6] = { -1, -1, -1, -1, -1, -1 };
+
+void SetRayTracingEnabled(bool enabled)
+{
+    rayTracingEnabled = enabled;
+    TraceLog(LOG_INFO, "Ray traced shadows: %s", rayTracingEnabled ? "ON" : "OFF");
+}
+
+bool ToggleRayTracing()
+{
+    SetRayTracingEnabled(!rayTracingEnabled);
+    return rayTracingEnabled;
+}
+
+bool IsRayTracingEnabled()
+{
+    return rayTracingEnabled;
+}
+
+void BeginRayTraceSceneUpload()
+{
+    rtCubeCount = 0;
+    rtSphereCount = 0;
+    rtCylinderCount = 0;
+}
+
+void AddRayTraceCube(Vector3 position, Vector3 rotation, Vector3 scale)
+{
+    if (rtCubeCount >= MAX_RAYTRACE_OBJECTS) return;
+
+    rtCubePositions[rtCubeCount] = position;
+    rtCubeRotations[rtCubeCount] = rotation;
+    rtCubeScales[rtCubeCount] = scale;
+    rtCubeCount++;
+}
+
+void AddRayTraceSphere(Vector3 position, Vector3 scale)
+{
+    if (rtSphereCount >= MAX_RAYTRACE_OBJECTS) return;
+
+    rtSpherePositions[rtSphereCount] = position;
+    rtSphereScales[rtSphereCount] = scale;
+    rtSphereCount++;
+}
+
+void AddRayTraceCylinder(Vector3 position, Vector3 rotation, Vector3 scale)
+{
+    if (rtCylinderCount >= MAX_RAYTRACE_OBJECTS) return;
+
+    rtCylinderPositions[rtCylinderCount] = position;
+    rtCylinderRotations[rtCylinderCount] = rotation;
+    rtCylinderScales[rtCylinderCount] = scale;
+    rtCylinderCount++;
+}
+
+void EndRayTraceSceneUpload()
+{
+    // Kept as a named end-step so object.cpp can clearly bracket the upload.
+}
 
 static bool GetPrimaryShadowPointLight(Vector3* outPosition, int* outActiveLightIndex)
 {
@@ -378,6 +469,26 @@ void InitLighting()
         );
     }
 
+    rayTracingEnabledLoc = GetShaderLocation(lightingShader, "rayTracingEnabled");
+
+    rtCubeCountLoc = GetShaderLocation(lightingShader, "rtCubeCount");
+    rtSphereCountLoc = GetShaderLocation(lightingShader, "rtSphereCount");
+    rtCylinderCountLoc = GetShaderLocation(lightingShader, "rtCylinderCount");
+
+    for (int i = 0; i < MAX_RAYTRACE_OBJECTS; i++)
+    {
+        rtCubePositionsLoc[i] = GetShaderLocation(lightingShader, TextFormat("rtCubePositions[%i]", i));
+        rtCubeRotationsLoc[i] = GetShaderLocation(lightingShader, TextFormat("rtCubeRotations[%i]", i));
+        rtCubeScalesLoc[i] = GetShaderLocation(lightingShader, TextFormat("rtCubeScales[%i]", i));
+
+        rtSpherePositionsLoc[i] = GetShaderLocation(lightingShader, TextFormat("rtSpherePositions[%i]", i));
+        rtSphereScalesLoc[i] = GetShaderLocation(lightingShader, TextFormat("rtSphereScales[%i]", i));
+
+        rtCylinderPositionsLoc[i] = GetShaderLocation(lightingShader, TextFormat("rtCylinderPositions[%i]", i));
+        rtCylinderRotationsLoc[i] = GetShaderLocation(lightingShader, TextFormat("rtCylinderRotations[%i]", i));
+        rtCylinderScalesLoc[i] = GetShaderLocation(lightingShader, TextFormat("rtCylinderScales[%i]", i));
+    }
+
     usePointLightShadowLoc =
         GetShaderLocation(lightingShader, "usePointLightShadow");
 
@@ -489,52 +600,84 @@ void UpdateLighting(Camera3D camera)
 
     int activeLightCount = 0;
 
-    for (int i = 0; i < sceneLightCount && activeLightCount < MAX_SHADER_LIGHTS; i++)
+    if (!rayTracingEnabled)
     {
-        if (!sceneLights[i].enabled) continue;
-        if (sceneLights[i].type != SCENE_LIGHT_POINT) continue;
+        // Legacy shadow-map mode: keep scene order so shader light 0 matches
+        // the old primary shadow-map light.
+        for (int i = 0; i < sceneLightCount && activeLightCount < MAX_SHADER_LIGHTS; i++)
+        {
+            if (!sceneLights[i].enabled) continue;
+            if (sceneLights[i].type != SCENE_LIGHT_POINT) continue;
 
-        Vector3 position = sceneLights[i].position;
+            Vector3 position = sceneLights[i].position;
 
-        Vector4 color = {
-            sceneLights[i].color.r / 255.0f,
-            sceneLights[i].color.g / 255.0f,
-            sceneLights[i].color.b / 255.0f,
-            1.0f
-        };
+            Vector4 color = {
+                sceneLights[i].color.r / 255.0f,
+                sceneLights[i].color.g / 255.0f,
+                sceneLights[i].color.b / 255.0f,
+                1.0f
+            };
 
-        float intensity = sceneLights[i].intensity;
-        float radius = sceneLights[i].radius;
+            float intensity = sceneLights[i].intensity;
+            float radius = sceneLights[i].radius;
 
-        SetShaderValue(
-            lightingShader,
-            lightPositionsLoc[activeLightCount],
-            &position,
-            SHADER_UNIFORM_VEC3
-        );
+            SetShaderValue(lightingShader, lightPositionsLoc[activeLightCount], &position, SHADER_UNIFORM_VEC3);
+            SetShaderValue(lightingShader, lightColorsLoc[activeLightCount], &color, SHADER_UNIFORM_VEC4);
+            SetShaderValue(lightingShader, lightIntensitiesLoc[activeLightCount], &intensity, SHADER_UNIFORM_FLOAT);
+            SetShaderValue(lightingShader, lightRadiiLoc[activeLightCount], &radius, SHADER_UNIFORM_FLOAT);
 
-        SetShaderValue(
-            lightingShader,
-            lightColorsLoc[activeLightCount],
-            &color,
-            SHADER_UNIFORM_VEC4
-        );
+            activeLightCount++;
+        }
+    }
+    else
+    {
+        bool usedLights[MAX_SCENE_LIGHTS] = { false };
 
-        SetShaderValue(
-            lightingShader,
-            lightIntensitiesLoc[activeLightCount],
-            &intensity,
-            SHADER_UNIFORM_FLOAT
-        );
+        // Ray-traced mode: upload nearest active point lights first. This lets
+        // the editor store many lights while staying inside GLSL uniform limits.
+        for (int slot = 0; slot < MAX_SHADER_LIGHTS; slot++)
+        {
+            int bestIndex = -1;
+            float bestDistance = FLT_MAX;
 
-        SetShaderValue(
-            lightingShader,
-            lightRadiiLoc[activeLightCount],
-            &radius,
-            SHADER_UNIFORM_FLOAT
-        );
+            for (int i = 0; i < sceneLightCount; i++)
+            {
+                if (usedLights[i]) continue;
+                if (!sceneLights[i].enabled) continue;
+                if (sceneLights[i].type != SCENE_LIGHT_POINT) continue;
 
-        activeLightCount++;
+                float distanceToCamera = Vector3DistanceSqr(sceneLights[i].position, camera.position);
+
+                if (distanceToCamera < bestDistance)
+                {
+                    bestDistance = distanceToCamera;
+                    bestIndex = i;
+                }
+            }
+
+            if (bestIndex < 0) break;
+
+            usedLights[bestIndex] = true;
+
+            Vector3 position = sceneLights[bestIndex].position;
+
+            Vector4 color = {
+                sceneLights[bestIndex].color.r / 255.0f,
+                sceneLights[bestIndex].color.g / 255.0f,
+                sceneLights[bestIndex].color.b / 255.0f,
+                1.0f
+            };
+
+            float intensity = sceneLights[bestIndex].intensity;
+            float radius = sceneLights[bestIndex].radius;
+
+            SetShaderValue(lightingShader, lightPositionsLoc[activeLightCount], &position, SHADER_UNIFORM_VEC3);
+            SetShaderValue(lightingShader, lightColorsLoc[activeLightCount], &color, SHADER_UNIFORM_VEC4);
+            SetShaderValue(lightingShader, lightIntensitiesLoc[activeLightCount], &intensity, SHADER_UNIFORM_FLOAT);
+            SetShaderValue(lightingShader, lightRadiiLoc[activeLightCount], &radius, SHADER_UNIFORM_FLOAT);
+
+            activeLightCount++;
+        }
     }
 
     SetShaderValue(
@@ -544,14 +687,44 @@ void UpdateLighting(Camera3D camera)
         SHADER_UNIFORM_INT
     );
 
+    int rtEnabled = rayTracingEnabled ? 1 : 0;
+    SetShaderValue(lightingShader, rayTracingEnabledLoc, &rtEnabled, SHADER_UNIFORM_INT);
+
+    SetShaderValue(lightingShader, rtCubeCountLoc, &rtCubeCount, SHADER_UNIFORM_INT);
+    SetShaderValue(lightingShader, rtSphereCountLoc, &rtSphereCount, SHADER_UNIFORM_INT);
+    SetShaderValue(lightingShader, rtCylinderCountLoc, &rtCylinderCount, SHADER_UNIFORM_INT);
+
+    for (int i = 0; i < rtCubeCount; i++)
+    {
+        SetShaderValue(lightingShader, rtCubePositionsLoc[i], &rtCubePositions[i], SHADER_UNIFORM_VEC3);
+        SetShaderValue(lightingShader, rtCubeRotationsLoc[i], &rtCubeRotations[i], SHADER_UNIFORM_VEC3);
+        SetShaderValue(lightingShader, rtCubeScalesLoc[i], &rtCubeScales[i], SHADER_UNIFORM_VEC3);
+    }
+
+    for (int i = 0; i < rtSphereCount; i++)
+    {
+        SetShaderValue(lightingShader, rtSpherePositionsLoc[i], &rtSpherePositions[i], SHADER_UNIFORM_VEC3);
+        SetShaderValue(lightingShader, rtSphereScalesLoc[i], &rtSphereScales[i], SHADER_UNIFORM_VEC3);
+    }
+
+    for (int i = 0; i < rtCylinderCount; i++)
+    {
+        SetShaderValue(lightingShader, rtCylinderPositionsLoc[i], &rtCylinderPositions[i], SHADER_UNIFORM_VEC3);
+        SetShaderValue(lightingShader, rtCylinderRotationsLoc[i], &rtCylinderRotations[i], SHADER_UNIFORM_VEC3);
+        SetShaderValue(lightingShader, rtCylinderScalesLoc[i], &rtCylinderScales[i], SHADER_UNIFORM_VEC3);
+    }
+
     Vector3 shadowLightPos = { 0.0f, 0.0f, 0.0f };
     int shadowActiveIndex = -1;
     int usePointLightShadow = 0;
 
-    if (GetPrimaryShadowPointLight(&shadowLightPos, &shadowActiveIndex))
-    {
-        usePointLightShadow = 1;
-    }
+    // Important: the legacy shadow-map system only supports ONE primary point light.
+    // Do not enable it here, otherwise users see one-light-only shadows whenever
+    // ray tracing is OFF. Ray tracing ON = multi-light shadows. Ray tracing OFF =
+    // normal PBR lighting without shadows.
+    (void)shadowLightPos;
+    (void)shadowActiveIndex;
+    usePointLightShadow = 0;
 
     SetShaderValue(
         lightingShader,

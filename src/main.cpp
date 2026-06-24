@@ -39,6 +39,11 @@ int main()
             ToggleFullscreen();
             ShowCursor();
         }
+
+        if (IsKeyPressed(KEY_R))
+        {
+            ToggleRayTracing();
+        }
         if (currentResIndex != lastResIndex)
         {
             SetWindowSize(cr[currentResIndex].width, cr[currentResIndex].height);
@@ -48,29 +53,27 @@ int main()
         {
             UpdateCameraController(camera);
         }
+        UploadSceneToRayTracer();
         UpdateLighting(camera);
 
-        if (HasShadowCastingPointLight())
-        {
-            for (int face = 0; face < GetPointShadowFaceCount(); face++)
-            {
-                BeginPointShadowMapFace(face);
-
-                Camera3D shadowCamera = GetPointShadowCamera(face);
-
-                BeginMode3D(shadowCamera);
-                    DrawSceneForShadowMap();
-                EndMode3D();
-
-                EndPointShadowMapFace();
-            }
-        }
+        // Multi-light shadows are handled in lighting.fs when ray tracing is ON.
+        // The old 360 shadow-map path was single-light-only, so it is intentionally
+        // not rendered here. Ray tracing OFF means normal PBR lighting without shadows.
 
         BeginDrawing();
         ClearBackground(darkBackground);
         BindPointShadowMaps();
         DrawCameraScene(camera);
         topBar(currentResIndex, dropdownEditmode);
+
+        DrawText(
+            TextFormat("Multi-light RT shadows: %s  [Press R]", IsRayTracingEnabled() ? "ON" : "OFF"),
+            10,
+            GetScreenHeight() - 28,
+            18,
+            IsRayTracingEnabled() ? GREEN : LIGHTGRAY
+        );
+
         if (IsKeyPressed(KEY_BACKSPACE))
         {
             deleteobj();

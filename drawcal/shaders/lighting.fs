@@ -1,6 +1,7 @@
 #version 330
 
-#define MAX_SHADER_LIGHTS 16
+#define MAX_SHADER_LIGHTS 64
+#define MAX_RAYTRACE_OBJECTS 64
 #define PI 3.14159265359
 
 in vec3 fragPosition;
@@ -33,7 +34,25 @@ uniform vec4 lightColors[MAX_SHADER_LIGHTS];
 uniform float lightIntensities[MAX_SHADER_LIGHTS];
 uniform float lightRadii[MAX_SHADER_LIGHTS];
 
-// 360 point-light shadow uniforms
+// Toggle for the new shader ray-traced shadows.
+uniform int rayTracingEnabled;
+
+// Scene primitives uploaded by object.cpp for ray-traced shadows.
+uniform int rtCubeCount;
+uniform vec3 rtCubePositions[MAX_RAYTRACE_OBJECTS];
+uniform vec3 rtCubeRotations[MAX_RAYTRACE_OBJECTS];
+uniform vec3 rtCubeScales[MAX_RAYTRACE_OBJECTS];
+
+uniform int rtSphereCount;
+uniform vec3 rtSpherePositions[MAX_RAYTRACE_OBJECTS];
+uniform vec3 rtSphereScales[MAX_RAYTRACE_OBJECTS];
+
+uniform int rtCylinderCount;
+uniform vec3 rtCylinderPositions[MAX_RAYTRACE_OBJECTS];
+uniform vec3 rtCylinderRotations[MAX_RAYTRACE_OBJECTS];
+uniform vec3 rtCylinderScales[MAX_RAYTRACE_OBJECTS];
+
+// Legacy 360 point-light shadow uniforms. These are used only when ray tracing is OFF.
 uniform int usePointLightShadow;
 uniform int shadowPointLightIndex;
 uniform vec3 shadowPointLightPosition;
@@ -108,6 +127,213 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     return ggx1 * ggx2;
 }
 
+vec3 RotateX(vec3 v, float angle)
+{
+    float c = cos(angle);
+    float s = sin(angle);
+    return vec3(v.x, c * v.y - s * v.z, s * v.y + c * v.z);
+}
+
+vec3 RotateY(vec3 v, float angle)
+{
+    float c = cos(angle);
+    float s = sin(angle);
+    return vec3(c * v.x + s * v.z, v.y, -s * v.x + c * v.z);
+}
+
+vec3 RotateZ(vec3 v, float angle)
+{
+    float c = cos(angle);
+    float s = sin(angle);
+    return vec3(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
+}
+
+vec3 InverseRotateXYZ(vec3 v, vec3 rotationDegrees)
+{
+    vec3 r = -radians(rotationDegrees);
+
+    // Inverse of the editor's X/Y/Z object rotation, good enough for shadow rays.
+    v = RotateZ(v, r.z);
+    v = RotateY(v, r.y);
+    v = RotateX(v, r.x);
+
+    return v;
+}
+
+float SafeInverse(float v)
+{
+    if (abs(v) < 0.00001)
+    {
+        return v < 0.0 ? -100000.0 : 100000.0;
+    }
+
+    return 1.0 / v;
+}
+
+bool RaySphereHit(vec3 rayOrigin, vec3 rayDir, vec3 center, vec3 scale, float maxDistance)
+{
+    float radius = max(max(scale.x, scale.y), scale.z);
+    radius = max(radius, 0.001);
+
+    vec3 oc = rayOrigin - center;
+    float b = dot(oc, rayDir);
+    float c = dot(oc, oc) - radius * radius;
+    float h = b * b - c;
+
+    if (h < 0.0) return false;
+
+    h = sqrt(h);
+
+    float t = -b - h;
+    if (t > 0.03 && t < maxDistance - 0.03) return true;
+
+    t = -b + h;
+    return t > 0.03 && t < maxDistance - 0.03;
+}
+
+bool RayBoxHit(vec3 rayOrigin, vec3 rayDir, vec3 position, vec3 rotation, vec3 scale, float maxDistance)
+{
+    vec3 ro = InverseRotateXYZ(rayOrigin - position, rotation);
+    vec3 rd = normalize(InverseRotateXYZ(rayDir, rotation));
+
+    vec3 halfSize = max(abs(scale), vec3(0.001));
+
+    vec3 invD = vec3(SafeInverse(rd.x), SafeInverse(rd.y), SafeInverse(rd.z));
+
+    vec3 t0 = (-halfSize - ro) * invD;
+    vec3 t1 = ( halfSize - ro) * invD;
+
+    vec3 tsmaller = min(t0, t1);
+    vec3 tbigger = max(t0, t1);
+
+    float tmin = max(max(tsmaller.x, tsmaller.y), tsmaller.z);
+    float tmax = min(min(tbigger.x, tbigger.y), tbigger.z);
+
+    if (tmax < 0.03) return false;
+    if (tmin > tmax) return false;
+
+    float t = tmin > 0.03 ? tmin : tmax;
+    return t > 0.03 && t < maxDistance - 0.03;
+}
+
+bool RayCylinderHit(vec3 rayOrigin, vec3 rayDir, vec3 position, vec3 rotation, vec3 scale, float maxDistance)
+{
+    vec3 ro = InverseRotateXYZ(rayOrigin - position, rotation);
+    vec3 rd = normalize(InverseRotateXYZ(rayDir, rotation));
+
+    float radius = max(max(abs(scale.x), abs(scale.z)), 0.001);
+    float halfHeight = max(abs(scale.y), 0.001);
+
+    float a = rd.x * rd.x + rd.z * rd.z;
+    float b = 2.0 * (ro.x * rd.x + ro.z * rd.z);
+    float c = ro.x * ro.x + ro.z * ro.z - radius * radius;
+
+    if (abs(a) > 0.00001)
+    {
+        float disc = b * b - 4.0 * a * c;
+
+        if (disc >= 0.0)
+        {
+            float root = sqrt(disc);
+            float t0 = (-b - root) / (2.0 * a);
+            float t1 = (-b + root) / (2.0 * a);
+
+            float y0 = ro.y + t0 * rd.y;
+            if (t0 > 0.03 && t0 < maxDistance - 0.03 && y0 >= -halfHeight && y0 <= halfHeight)
+            {
+                return true;
+            }
+
+            float y1 = ro.y + t1 * rd.y;
+            if (t1 > 0.03 && t1 < maxDistance - 0.03 && y1 >= -halfHeight && y1 <= halfHeight)
+            {
+                return true;
+            }
+        }
+    }
+
+    // Top and bottom caps.
+    if (abs(rd.y) > 0.00001)
+    {
+        float tTop = (halfHeight - ro.y) / rd.y;
+        vec3 pTop = ro + rd * tTop;
+        if (tTop > 0.03 && tTop < maxDistance - 0.03 && dot(pTop.xz, pTop.xz) <= radius * radius)
+        {
+            return true;
+        }
+
+        float tBottom = (-halfHeight - ro.y) / rd.y;
+        vec3 pBottom = ro + rd * tBottom;
+        if (tBottom > 0.03 && tBottom < maxDistance - 0.03 && dot(pBottom.xz, pBottom.xz) <= radius * radius)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+float CameraShadowFade(vec3 fragPos)
+{
+    float cameraDist = length(viewPos - fragPos);
+
+    return 1.0 - smoothstep(
+        shadowCameraMaxDistance,
+        shadowCameraMaxDistance + shadowCameraFadeRange,
+        cameraDist
+    );
+}
+
+float CalculateRayTracedShadow(vec3 fragPos, vec3 geometricNormal, vec3 lightPosition)
+{
+    float cameraFade = CameraShadowFade(fragPos);
+
+    if (cameraFade <= 0.001)
+    {
+        return 0.0;
+    }
+
+    vec3 origin = fragPos + geometricNormal * 0.08;
+    vec3 toLight = lightPosition - origin;
+    float maxDistance = length(toLight);
+
+    if (maxDistance <= 0.05)
+    {
+        return 0.0;
+    }
+
+    vec3 rayDir = toLight / maxDistance;
+
+    for (int i = 0; i < MAX_RAYTRACE_OBJECTS; i++)
+    {
+        if (i >= rtCubeCount) break;
+        if (RayBoxHit(origin, rayDir, rtCubePositions[i], rtCubeRotations[i], rtCubeScales[i], maxDistance))
+        {
+            return cameraFade;
+        }
+    }
+
+    for (int i = 0; i < MAX_RAYTRACE_OBJECTS; i++)
+    {
+        if (i >= rtSphereCount) break;
+        if (RaySphereHit(origin, rayDir, rtSpherePositions[i], rtSphereScales[i], maxDistance))
+        {
+            return cameraFade;
+        }
+    }
+
+    for (int i = 0; i < MAX_RAYTRACE_OBJECTS; i++)
+    {
+        if (i >= rtCylinderCount) break;
+        if (RayCylinderHit(origin, rayDir, rtCylinderPositions[i], rtCylinderRotations[i], rtCylinderScales[i], maxDistance))
+        {
+            return cameraFade;
+        }
+    }
+
+    return 0.0;
+}
+
 int GetPointShadowFace(vec3 direction)
 {
     vec3 absDir = abs(direction);
@@ -139,15 +365,7 @@ float SamplePointShadowMap(int face, vec2 uv)
 
 float CalculatePointShadow(vec3 fragPos, vec3 N, vec3 L)
 {
-    // Shadows only show when the editor camera is near the shaded fragment.
-    float cameraDist = length(viewPos - fragPos);
-
-    float cameraShadowFade =
-        1.0 - smoothstep(
-            shadowCameraMaxDistance,
-            shadowCameraMaxDistance + shadowCameraFadeRange,
-            cameraDist
-        );
+    float cameraShadowFade = CameraShadowFade(fragPos);
 
     if (cameraShadowFade <= 0.001)
     {
@@ -282,7 +500,11 @@ void main()
 
         float shadow = 0.0;
 
-        if (usePointLightShadow == 1 && i == shadowPointLightIndex)
+        if (rayTracingEnabled == 1)
+        {
+            shadow = CalculateRayTracedShadow(fragPosition, N0, lightPositions[i]);
+        }
+        else if (usePointLightShadow == 1 && i == shadowPointLightIndex)
         {
             shadow = CalculatePointShadow(fragPosition, N, L);
         }
