@@ -1,0 +1,80 @@
+name: Build Desktop Executables
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-latest
+            artifact_name: DrawCAL-linux
+          - name: macOS
+            os: macos-latest
+            artifact_name: DrawCAL-macos
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            build-essential \
+            libasound2-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxi-dev \
+            libgl1-mesa-dev \
+            libglu1-mesa-dev \
+            libxcursor-dev \
+            libxinerama-dev
+
+      - name: Configure CMake
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Prepare artifact
+        shell: bash
+        run: |
+          mkdir -p dist
+
+          echo "Looking for built executable..."
+          find build -type f -perm -111 -maxdepth 5 || true
+
+          if [ -f "build/drawcal/drawcal" ]; then
+            cp build/drawcal/drawcal dist/
+          elif [ -f "build/drawcal" ]; then
+            cp build/drawcal dist/
+          elif [ -f "build/DrawCAL" ]; then
+            cp build/DrawCAL dist/
+          else
+            echo "Could not find executable automatically."
+            echo "Build folder:"
+            find build -maxdepth 5 -type f
+            exit 1
+          fi
+
+          cp -r shaders dist/ || true
+          cp -r textures dist/ || true
+          cp -r resources dist/ || true
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/
