@@ -25,6 +25,9 @@ static void DrawObjectModel(Model &model, ObjectInstance obj, Color color);
 
 enum ObjectType { NONE, CUBE, SPHERE, CYLINDER };
 static ObjectType selectedType = NONE;
+static const float DEFAULT_LIGHT_INTENSITY = 350.0f;
+static const float DEFAULT_LIGHT_RADIUS = 35.0f;
+static const float DEFAULT_LIGHT_HEIGHT = 3.0f;
 static int c = 0;
 static int s = 0;
 static int y = 0;
@@ -242,57 +245,13 @@ void initModels()
 }
 void UploadSceneToRayTracer()
 {
-    BeginRayTraceSceneUpload();
-
-    for (int i = 0; i < c; i++)
-    {
-        AddRayTraceCube(Cu[i].position, Cu[i].rotation, Cu[i].scale);
-    }
-
-    for (int i = 0; i < s; i++)
-    {
-        // Light markers are visible spheres, but they should not block their own light.
-        if (Sp[i].isLight) continue;
-
-        AddRayTraceSphere(Sp[i].position, Sp[i].scale);
-    }
-
-    for (int i = 0; i < y; i++)
-    {
-        AddRayTraceCylinder(cy[i].position, cy[i].rotation, cy[i].scale);
-    }
-
-    EndRayTraceSceneUpload();
+    // Legacy compatibility no-op. Ray tracing was removed from the active
+    // rendering path and replaced with rPBR-style PBR lighting.
 }
 
 void DrawSceneForShadowMap()
 {
-    Shader shadowShader = GetShadowShader();
-
-    cubeModel.materials[0].shader = shadowShader;
-    sphereModel.materials[0].shader = shadowShader;
-    cylinderModel.materials[0].shader = shadowShader;
-
-    for (int i = 0; i < c; i++)
-    {
-        DrawObjectModel(cubeModel, Cu[i], WHITE);
-    }
-
-    for (int i = 0; i < s; i++)
-    {
-        if (Sp[i].isLight) continue;
-
-        DrawObjectModel(sphereModel, Sp[i], WHITE);
-    }
-
-    for (int i = 0; i < y; i++)
-    {
-        DrawObjectModel(cylinderModel, cy[i], WHITE);
-    }
-
-    ApplyLightingShader(cubeModel);
-    ApplyLightingShader(sphereModel);
-    ApplyLightingShader(cylinderModel);
+    // Legacy compatibility no-op. Shadow maps are not used by the rPBR path.
 }
 
 void cube(const Vector3 pos,Color color) {
@@ -302,6 +261,10 @@ void cube(const Vector3 pos,Color color) {
         Cu[c].scale = { 1.0f, 1.0f, 1.0f };
         Cu[c].color = color;
         Cu[c].isSelected = false;
+        Cu[c].isLight = false;
+        Cu[c].lightIndex = -1;
+        Cu[c].lightIntensity = 0.0f;
+        Cu[c].lightRadius = 0.0f;
         Cu[c].material = MATERIAL_WOOD;
         c++;
     }
@@ -314,6 +277,10 @@ void sphere(const Vector3 pos,Color color){
         Sp[s].scale = Vector3{1.0f, 1.0f, 1.0f};
         Sp[s].color = color;
         Sp[s].isSelected = false;
+        Sp[s].isLight = false;
+        Sp[s].lightIndex = -1;
+        Sp[s].lightIntensity = 0.0f;
+        Sp[s].lightRadius = 0.0f;
         Sp[s].material = MATERIAL_WOOD;
         s++;
     }
@@ -326,8 +293,28 @@ void cylinder(const Vector3 pos,Color color){
         cy[y].scale = Vector3{1.0f, 1.0f, 1.0f};
         cy[y].color = color;
         cy[y].isSelected = false;
+        cy[y].isLight = false;
+        cy[y].lightIndex = -1;
+        cy[y].lightIntensity = 0.0f;
+        cy[y].lightRadius = 0.0f;
         cy[y].material = MATERIAL_WOOD;
         y++;
+    }
+}
+
+void SyncObjectLightsToScene()
+{
+    for (int i = 0; i < s; i++)
+    {
+        if (!Sp[i].isLight || Sp[i].lightIndex < 0) continue;
+
+        SetSceneLightPosition(Sp[i].lightIndex, Sp[i].position);
+        SetSceneLightProperties(
+            Sp[i].lightIndex,
+            Sp[i].color,
+            Sp[i].lightIntensity,
+            Sp[i].lightRadius
+        );
     }
 }
 
@@ -344,6 +331,12 @@ void frameSphere() {
 
         if (Sp[i].isLight && Sp[i].lightIndex >= 0) {
             SetSceneLightPosition(Sp[i].lightIndex, Sp[i].position);
+            SetSceneLightProperties(
+                Sp[i].lightIndex,
+                Sp[i].color,
+                Sp[i].lightIntensity,
+                Sp[i].lightRadius
+            );
 
             // Draw light marker as unlit bright sphere
             DrawSphere(Sp[i].position, Sp[i].scale.x, Sp[i].color);
@@ -490,11 +483,14 @@ void lightSphere(const Vector3 pos, Color color)
 {
     if (s < 100)
     {
-        int lightIndex = CreatePointLight(pos);
+        Vector3 lightPos = pos;
+        lightPos.y += DEFAULT_LIGHT_HEIGHT;
+
+        int lightIndex = CreatePointLight(lightPos);
 
         if (lightIndex == -1) return;
 
-        Sp[s].position = pos;
+        Sp[s].position = lightPos;
         Sp[s].rotation = Vector3{ 0.0f, 0.0f, 0.0f };
         Sp[s].scale = Vector3{ 0.25f, 0.25f, 0.25f };
         Sp[s].color = color;
@@ -502,6 +498,16 @@ void lightSphere(const Vector3 pos, Color color)
 
         Sp[s].isLight = true;
         Sp[s].lightIndex = lightIndex;
+        Sp[s].lightIntensity = DEFAULT_LIGHT_INTENSITY;
+        Sp[s].lightRadius = DEFAULT_LIGHT_RADIUS;
+
+        SetSceneLightPosition(Sp[s].lightIndex, Sp[s].position);
+        SetSceneLightProperties(
+            Sp[s].lightIndex,
+            Sp[s].color,
+            Sp[s].lightIntensity,
+            Sp[s].lightRadius
+        );
 
         s++;
     }

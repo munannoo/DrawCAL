@@ -6,9 +6,10 @@
 void initModels();
 void DrawSceneForShadowMap();
 void UploadSceneToRayTracer();
-void cube(const Vector3 pos,Color color=GRAY);
-void sphere(const Vector3 pos,Color color=GRAY);
-void cylinder(const Vector3 pos,Color color=GRAY);
+void SyncObjectLightsToScene();
+void cube(const Vector3 pos, Color color = GRAY);
+void sphere(const Vector3 pos, Color color = GRAY);
+void cylinder(const Vector3 pos, Color color = GRAY);
 void frameCube();
 void frameSphere();
 void frameCylinder();

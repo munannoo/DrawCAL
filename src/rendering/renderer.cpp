@@ -50,6 +50,7 @@ void DrawCameraScene(const Camera3D &camera)
         EndBlendMode();
         
         rlEnableBackfaceCulling();
+        SyncObjectLightsToScene();
         UpdateLighting(camera);
         frameCube();
         frameSphere();

@@ -1,39 +1,47 @@
+/*******************************************************************************************
+*
+*   rPBR [shader] - Physically based rendering vertex shader
+*   Adapted for DrawCAL raylib Material/DrawModel pipeline.
+*
+*   Original copyright (c) 2017 Victor Fisac
+*   License: zlib/libpng
+*
+**********************************************************************************************/
+
 #version 330
 
+// Input vertex attributes from raylib
 in vec3 vertexPosition;
 in vec2 vertexTexCoord;
 in vec3 vertexNormal;
-in vec4 vertexTangent;
-in vec4 vertexColor;
+in vec3 vertexTangent;
 
+// Input uniform values from raylib
 uniform mat4 mvp;
 uniform mat4 matModel;
 uniform mat4 matNormal;
 
-out vec3 fragPosition;
+// Output vertex attributes to fragment shader
 out vec2 fragTexCoord;
+out vec3 fragPos;
 out vec3 fragNormal;
 out vec3 fragTangent;
-out vec3 fragBitangent;
-out vec4 fragColor;
+out vec3 fragBinormal;
 
 void main()
 {
-    vec4 worldPosition = matModel * vec4(vertexPosition, 1.0);
+    // rPBR-style TBN data for tangent-space normal mapping.
+    vec3 vertexBinormal = cross(vertexNormal, vertexTangent);
+    mat3 normalMatrix = mat3(matNormal);
 
-    vec3 N = normalize(vec3(matNormal * vec4(vertexNormal, 0.0)));
-    vec3 T = normalize(vec3(matNormal * vec4(vertexTangent.xyz, 0.0)));
-
-    T = normalize(T - dot(T, N) * N);
-
-    vec3 B = cross(N, T) * vertexTangent.w;
-
-    fragPosition = worldPosition.xyz;
+    fragPos = vec3(matModel*vec4(vertexPosition, 1.0));
     fragTexCoord = vertexTexCoord;
-    fragNormal = N;
-    fragTangent = T;
-    fragBitangent = B;
-    fragColor = vertexColor;
 
-    gl_Position = mvp * vec4(vertexPosition, 1.0);
+    fragNormal = normalize(normalMatrix*vertexNormal);
+    fragTangent = normalize(normalMatrix*vertexTangent);
+    fragTangent = normalize(fragTangent - dot(fragTangent, fragNormal)*fragNormal);
+    fragBinormal = normalize(normalMatrix*vertexBinormal);
+    fragBinormal = cross(fragNormal, fragTangent);
+
+    gl_Position = mvp*vec4(vertexPosition, 1.0);
 }
