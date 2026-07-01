@@ -31,7 +31,7 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
         mouseButtonPressed = true;
 
         clickPos = GetMousePosition();
-        Ray ray = GetMouseRay(clickPos, camera); // creating an object ray from raylib, that will project a ray from the camera to the coordinates to get a #D position
+        Ray ray = GetScreenToWorldRay(clickPos, camera); // creating an object ray from raylib, that will project a ray from the camera to the coordinates to get a #D position
         RayCollision collision = GetRayCollisionQuad(ray, p1, p2, p3, p4);
         if (collision.hit) {
             objPosn = collision.point;

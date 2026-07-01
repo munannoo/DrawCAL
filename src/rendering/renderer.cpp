@@ -55,7 +55,7 @@ void DrawCameraScene(const Camera3D &camera)
         frameSphere();
         frameCylinder();
         DrawSceneLights();
-        drawObjectTransformGizmo();
+        drawObjectTransformGizmo(camera);
 
     EndMode3D();
 }

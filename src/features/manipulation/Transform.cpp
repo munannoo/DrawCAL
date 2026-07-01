@@ -435,7 +435,7 @@ bool UpdateTransformGizmo(
 
     Vector2 mouseDelta = GetMouseDelta();
     Vector2 mousePosition = GetMousePosition();
-    Ray ray = GetMouseRay(mousePosition, camera);
+    Ray ray = GetScreenToWorldRay(mousePosition, camera);
 
     bool clickedGizmo = false;
     float selectedMaxScale = GetSelectedMaxScale(

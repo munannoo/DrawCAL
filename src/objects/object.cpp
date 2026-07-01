@@ -8,7 +8,8 @@
 #include "features/shadings/lighting.h"
 #include "data/save_load/saveNload.h"
 #include <iostream>
-#include "features/shadings/textures.h"
+#include <vector>
+
 static Model cubeModel;
 static Model sphereModel;
 static Model cylinderModel;
@@ -21,14 +22,27 @@ static ObjectInstance Cu[100];
 static ObjectInstance Sp[100];
 static ObjectInstance cy[100];
 
-static void DrawObjectModel(Model &model, ObjectInstance obj, Color color);
-
 enum ObjectType { NONE, CUBE, SPHERE, CYLINDER };
+
+static void DrawObjectModel(Model &model, ObjectInstance obj, Color color);
+static Matrix GetObjectTransform(ObjectInstance obj);
+static void EnsureSceneVertices();
+static void AssignDefaultVertices(ObjectInstance& obj, ObjectType type);
+static void DrawSelectedVertexHandles(Camera3D camera);
+
 static ObjectType selectedType = NONE;
 static int c = 0;
 static int s = 0;
 static int y = 0;
 static int totalSelectedCount = 0;
+
+// for vertex handle rendering
+enum HandleRole { HANDLE_CORNER, HANDLE_CENTER, HANDLE_RADIUS, HANDLE_AXIS };
+
+struct VertexHandle {
+    Vector3 worldPos;
+    HandleRole role;
+};
 
 void load(){
     loadScene(Cu, c, Sp, s, cy, y);
@@ -239,6 +253,7 @@ void initModels()
 
 
     load();
+    EnsureSceneVertices();
 }
 void DrawSceneForShadowMap()
 {
@@ -270,6 +285,177 @@ void DrawSceneForShadowMap()
     ApplyLightingShader(cylinderModel);
 }
 
+// DefaultVertices -> gives local position of the shapes
+static std::vector<Vector3> GetCubeDefaultVertices() {
+    return {
+        { -1.0f, -1.0f, -1.0f },
+        {  1.0f, -1.0f, -1.0f },
+        {  1.0f, -1.0f,  1.0f },
+        { -1.0f, -1.0f,  1.0f },
+        { -1.0f,  1.0f, -1.0f },
+        {  1.0f,  1.0f, -1.0f },
+        {  1.0f,  1.0f,  1.0f },
+        { -1.0f,  1.0f,  1.0f },
+    };
+}
+
+static std::vector<Vector3> GetSphereDefaultVertices() {
+    return {
+        {  0.0f,  0.0f,  0.0f },
+        {  0.0f,  1.0f,  0.0f },
+        {  0.0f, -1.0f,  0.0f },
+        {  1.0f,  0.0f,  0.0f },
+        { -1.0f,  0.0f,  0.0f },
+        {  0.0f,  0.0f,  1.0f },
+        {  0.0f,  0.0f, -1.0f },
+    };
+}
+
+static std::vector<Vector3> GetCylinderDefaultVertices() {
+    std::vector<Vector3> vertices;
+    const int slices = 16;
+
+    vertices.push_back({ 0.0f,  1.0f, 0.0f });
+    vertices.push_back({ 0.0f, -1.0f, 0.0f });
+
+    for (int i = 0; i < slices; i++) {
+        float angle = (2.0f * PI * i) / slices;
+        float x = cosf(angle);
+        float z = sinf(angle);
+
+        vertices.push_back({ x,  1.0f, z });
+        vertices.push_back({ x, -1.0f, z });
+    }
+
+    return vertices;
+}
+
+static void AssignDefaultVertices(ObjectInstance& obj, ObjectType type) {
+    switch (type) {
+        case CUBE:
+            obj.vertices = GetCubeDefaultVertices();
+            break;
+        case SPHERE:
+            obj.vertices = GetSphereDefaultVertices();
+            break;
+        case CYLINDER:
+            obj.vertices = GetCylinderDefaultVertices();
+            break;
+        default:
+            obj.vertices.clear();
+            break;
+    }
+}
+
+static void EnsureVertices(ObjectInstance& obj, ObjectType type) {
+    if (obj.vertices.empty()) {
+        AssignDefaultVertices(obj, type);
+    }
+}
+
+static void EnsureSceneVertices() {
+    for (int i = 0; i < c; i++) EnsureVertices(Cu[i], CUBE);
+    for (int i = 0; i < s; i++) EnsureVertices(Sp[i], SPHERE);
+    for (int i = 0; i < y; i++) EnsureVertices(cy[i], CYLINDER);
+}
+
+static std::vector<VertexHandle> GetHandles(const ObjectInstance& obj, ObjectType type) {
+    std::vector<VertexHandle> handles;
+    Matrix transform = GetObjectTransform(obj);
+
+    for (size_t i = 0; i < obj.vertices.size(); i++) {
+        HandleRole role = HANDLE_CORNER;
+
+        if (type == SPHERE) {
+            role = (i == 0) ? HANDLE_CENTER : HANDLE_RADIUS;
+        }
+        else if (type == CYLINDER) {
+            role = (i < 2) ? HANDLE_AXIS : HANDLE_RADIUS;
+        }
+
+        handles.push_back({ Vector3Transform(obj.vertices[i], transform), role });
+    }
+
+    return handles;
+}
+
+static std::vector<Vector3> GetVertices(const ObjectInstance& obj, ObjectType type) {
+    std::vector<Vector3> positions;
+
+    for (const auto& handle : GetHandles(obj, type)) {
+        positions.push_back(handle.worldPos);
+    }
+
+    return positions;
+}
+
+// checks if the vertices fall within the camera frame
+static bool IsInFrontOfCamera(Vector3 position, Camera3D camera) {
+    Vector3 cameraForward = Vector3Normalize(Vector3Subtract(camera.target, camera.position));
+    Vector3 toPosition = Vector3Subtract(position, camera.position);
+
+    return Vector3DotProduct(cameraForward, toPosition) > 0.0f;
+}
+
+static void DrawHandle(Vector3 worldPos, HandleRole role, bool hovered) {
+    Color color = WHITE;
+    float radius = 0.055f;
+
+    switch (role) {
+        case HANDLE_CENTER:
+            color = hovered ? YELLOW : GRAY;
+            radius = 0.07f;
+            break;
+        case HANDLE_CORNER:
+            color = hovered ? YELLOW : WHITE;
+            break;
+        case HANDLE_RADIUS:
+            color = hovered ? ORANGE : WHITE;
+            break;
+        case HANDLE_AXIS:
+            color = hovered ? SKYBLUE : BLUE;
+            radius = 0.065f;
+            break;
+    }
+
+    DrawSphere(worldPos, radius, color);
+    DrawSphereWires(worldPos, radius * 1.35f, 8, 8, DARKGRAY);
+}
+
+static void DrawVertexHandlesForObject(const ObjectInstance& obj, ObjectType type, Camera3D camera) {
+    Vector2 mouse = GetMousePosition();
+    std::vector<VertexHandle> handles = GetHandles(obj, type);
+
+    rlDisableDepthTest(); // draw over the objects.
+
+    for (const auto& handle : handles) {
+        if (!IsInFrontOfCamera(handle.worldPos, camera)) continue;
+
+        Vector2 screenPos = GetWorldToScreen(handle.worldPos, camera);
+        bool hovered = CheckCollisionPointCircle(mouse, screenPos, 8.0f);
+
+        DrawHandle(handle.worldPos, handle.role, hovered);
+    }
+
+    rlEnableDepthTest();
+}
+
+static void DrawSelectedVertexHandles(Camera3D camera) {
+    EnsureSceneVertices();
+
+    for (int i = 0; i < c; i++) {
+        if (Cu[i].isSelected) DrawVertexHandlesForObject(Cu[i], CUBE, camera);
+    }
+
+    for (int i = 0; i < s; i++) {
+        if (Sp[i].isSelected) DrawVertexHandlesForObject(Sp[i], SPHERE, camera);
+    }
+
+    for (int i = 0; i < y; i++) {
+        if (cy[i].isSelected) DrawVertexHandlesForObject(cy[i], CYLINDER, camera);
+    }
+}
+
 void cube(const Vector3 pos,Color color) {
     if (c < 100) {
         Cu[c].position = pos;
@@ -278,6 +464,7 @@ void cube(const Vector3 pos,Color color) {
         Cu[c].color = color;
         Cu[c].isSelected = false;
         Cu[c].material = MATERIAL_WOOD;
+        AssignDefaultVertices(Cu[c], CUBE);
         c++;
     }
 }
@@ -290,6 +477,7 @@ void sphere(const Vector3 pos,Color color){
         Sp[s].color = color;
         Sp[s].isSelected = false;
         Sp[s].material = MATERIAL_WOOD;
+        AssignDefaultVertices(Sp[s], SPHERE);
         s++;
     }
 }
@@ -302,6 +490,7 @@ void cylinder(const Vector3 pos,Color color){
         cy[y].color = color;
         cy[y].isSelected = false;
         cy[y].material = MATERIAL_WOOD;
+        AssignDefaultVertices(cy[y], CYLINDER);
         y++;
     }
 }
@@ -454,12 +643,13 @@ bool updateObjectTransformGizmo(Camera3D camera) {
     );
 }
 
-void drawObjectTransformGizmo() {
+void drawObjectTransformGizmo(Camera3D camera) {
     DrawTransformGizmo(
         Cu, c,
         Sp, s,
         cy, y
     );
+    DrawSelectedVertexHandles(camera);
 }
 void lightSphere(const Vector3 pos, Color color)
 {
@@ -477,6 +667,7 @@ void lightSphere(const Vector3 pos, Color color)
 
         Sp[s].isLight = true;
         Sp[s].lightIndex = lightIndex;
+        AssignDefaultVertices(Sp[s], SPHERE);
 
         s++;
     }
