@@ -35,7 +35,7 @@ int main()
 
     while (!WindowShouldClose())
     {
-        Ray ray = GetMouseRay(GetMousePosition(), camera);
+        Ray ray = GetScreenToWorldRay(GetMousePosition(), camera);
         bool usingGizmo = updateObjectTransformGizmo(camera);
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !usingGizmo)

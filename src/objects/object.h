@@ -16,7 +16,7 @@ void frameCylinder();
 void Unload();
 void leftclick(Ray ray);
 bool updateObjectTransformGizmo(Camera3D camera);
-void drawObjectTransformGizmo();
+void drawObjectTransformGizmo(Camera3D camera);
 void lightSphere(const Vector3 pos, Color color);
 void deleteobj();
 #endif // object_h

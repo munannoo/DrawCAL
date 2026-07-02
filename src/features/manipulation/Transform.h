@@ -2,10 +2,13 @@
 #define TRANSFORM_H
 #include<raylib.h>
 #include "features/shadings/textures.h"
+#include <vector>
+
 struct ObjectInstance {
     Vector3 position;
     Vector3 rotation;
     Vector3 scale;
+    std::vector<Vector3> vertices;
     Color color;
     float lightIntensity = 25.0f;
     float lightRadius = 50.0f;

@@ -241,7 +241,7 @@ int CreatePointLight(Vector3 position)
 bool CreatePointLightAtMouse(Camera3D camera)
 {
     Vector2 mouse = GetMousePosition();
-    Ray ray = GetMouseRay(mouse, camera);
+    Ray ray = GetScreenToWorldRay(mouse, camera);
 
     if (fabsf(ray.direction.y) < 0.0001f)
     {
