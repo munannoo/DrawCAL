@@ -10,6 +10,8 @@ struct ObjectInstance {
     Vector3 scale;
     std::vector<Vector3> vertices;
     Color color;
+    float lightIntensity = 25.0f;
+    float lightRadius = 50.0f;
     bool isSelected;
     bool isLight = false;
     int lightIndex = -1;

@@ -2,20 +2,27 @@
 
 #include "raylib.h"
 
-#define MAX_SCENE_LIGHTS 64
+// rPBR's original shader uses 4 lights. DrawCAL can store many scene lights,
+// then uploads the nearest active 4 lights to the shader each frame.
+#define MAX_SCENE_LIGHTS 512
+#define MAX_SHADER_LIGHTS 4
 
+// Matches rPBR pbr.fs light type values.
 enum SceneLightType
 {
-    SCENE_LIGHT_POINT = 0
+    SCENE_LIGHT_DIRECTIONAL = 0,
+    SCENE_LIGHT_POINT = 1
 };
 
 struct SceneLight
 {
     Vector3 position;
     Vector3 direction;
+    Vector3 target;
 
     Color color;
 
+    // Sent through the alpha channel of the rPBR-style light color.
     float intensity;
     float radius;
 
@@ -43,17 +50,4 @@ void DeleteSceneLight(int index);
 
 SceneLight* GetSceneLights();
 int GetSceneLightCount();
-
-// 360 point-light shadow maps
-Shader GetShadowShader();
-
-bool HasShadowCastingPointLight();
-
-int GetPointShadowFaceCount();
-
-void BeginPointShadowMapFace(int face);
-void EndPointShadowMapFace();
-
-Camera3D GetPointShadowCamera(int face);
-
-void BindPointShadowMaps();
+void SetSceneLightProperties(int index, Color color, float intensity, float radius);
