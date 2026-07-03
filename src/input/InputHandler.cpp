@@ -1,6 +1,5 @@
 #include "InputHandler.h"
 
-#include "../ui/widgets/buttons.h"
 #include <raygui.h>
 #include <objects/object.h>
 #include <cstring>
@@ -24,8 +23,8 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
     // Large ground plane used to convert the right-click ray into a world position.
     float planeSize = 10000.0f;
     Vector3 p1 = { -planeSize, 0.0f, -planeSize };
-    Vector3 p2 = {  planeSize, 0.0f, -planeSize };
-    Vector3 p3 = {  planeSize, 0.0f,  planeSize };
+    Vector3 p2 = { planeSize, 0.0f, -planeSize };
+    Vector3 p3 = { planeSize, 0.0f,  planeSize };
     Vector3 p4 = { -planeSize, 0.0f,  planeSize };
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))

@@ -1,87 +1,83 @@
-#include "raylib.h"
-#include "features/shadings/textures.h"
-#include "features/camera/CameraController.h"
-#include "rendering/renderer.h"
-#include "input/InputHandler.h"
-#include "ui/panels/toolbar.h"
-#include "ui/widgets/buttons.h"
-#include "objects/object.h"
-#include "features/manipulation/Transform.h"
-#include "features/shadings/lighting.h"
+#include "main.h"
+
+int currentResIndex = static_cast<int>(resolutionIndex::RES_720p); // Used Enum from toolbar.h for readibility, better than just a 2
+int lastResIndex = currentResIndex;
+
+int currentThemeIndex = 0;
+int lastThemeIndex = currentThemeIndex;
+
+bool exitWindow = false;
 
 int main()
-{
+{   
     SetConfigFlags(FLAG_VSYNC_HINT);       // Enable vsync
     SetConfigFlags(FLAG_MSAA_4X_HINT);     // Enable 4x multisampling anti-aliasing (if available)
+    // Resolution settings determined inside toolbar.cpp
 
-    TraceLog(LOG_INFO, "Working directory: %s", GetWorkingDirectory());
+    bool mouseButtonPressed = false; 
 
-    int currentResIndex = RES_720p;
-    int lastResIndex = currentResIndex;
-    bool dropdownEditmode = false;
-    bool mouseButtonPressed = false;
+    InitWindow(resolutions[currentResIndex].width, resolutions[currentResIndex].height, "DrawCAL"); 
 
-    const Color darkBackground = { 57, 57, 57, 255 };
+	sceneManagerInit(); // Initialize the scene manager, only needs to be called once
 
-    InitWindow(cr[currentResIndex].width, cr[currentResIndex].height, "DrawCAL");
-
-    initModels();
+    initModels(); // Initialize the Models, only needs to be called once
     InitTransformGizmo();
-
-    Camera3D camera;
-    InitCamera(camera);
-
     initgridShader();
 
-    while (!WindowShouldClose())
+    // Main loop (Runs each frame until the window closes)
+    while (!exitWindow)
     {
-        Ray ray = GetScreenToWorldRay(GetMousePosition(), camera);
-        bool usingGizmo = updateObjectTransformGizmo(camera);
+        // Much of it is obsolete, need to incorporate the changes into the individual functions, initilaise, update whatnot
+        // Ray ray = GetScreenToWorldRay(GetMousePosition(), camera);
+        //bool usingGizmo = updateObjectTransformGizmo(camera);
 
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !usingGizmo)
-        {
-            leftclick(ray);
-        }
+        //if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !usingGizmo)
+        //{
+        //    leftclick(ray);
+        //}
 
-        if (IsKeyPressed(KEY_F11))
-        {
-            ToggleFullscreen();
-            ShowCursor();
-        }
+        //if (IsKeyPressed(KEY_F11))
+        //{
+        //    ToggleFullscreen();
+        //    ShowCursor();
+        //}
 
-        if (currentResIndex != lastResIndex)
-        {
-            SetWindowSize(cr[currentResIndex].width, cr[currentResIndex].height);
-            lastResIndex = currentResIndex;
-        }
+        //if (currentResIndex != lastResIndex)
+        //{
+        //    SetWindowSize(cr[currentResIndex].width, cr[currentResIndex].height);
+        //    lastResIndex = currentResIndex;
+        //}
 
-        if (!usingGizmo)
-        {
-            UpdateCameraController(camera);
-        }
+        //if (!usingGizmo)
+        //{
+        //    UpdateCameraController(camera);
+        //}
 
         // rPBR-style PBR lighting uniforms are updated before the scene is drawn.
-        UpdateLighting(camera);
+        //UpdateLighting(camera);
+
+        if (WindowShouldClose()) exitWindow = true;
+        sceneManagerUpdate(); // Update the current scene, also handles scene switching
 
         BeginDrawing();
-            ClearBackground(darkBackground);
+        ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+        sceneManagerDraw(); // Draw the current scene
 
-            DrawCameraScene(camera);
-            topBar(currentResIndex, dropdownEditmode);
+        // Incorporate into the other stuff
+        //if (IsKeyPressed(KEY_BACKSPACE))
+        //{
+        //    deleteobj();
+        //}
 
-            if (IsKeyPressed(KEY_BACKSPACE))
-            {
-                deleteobj();
-            }
+        //if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || mouseButtonPressed)
+        //{
+        //    contextMenu(mouseButtonPressed, camera);
+        //}
 
-            if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || mouseButtonPressed)
-            {
-                contextMenu(mouseButtonPressed, camera);
-            }
         EndDrawing();
     }
-
-    UnloadTransformGizmo();
+    // we do have an unload function
+    //UnloadTransformGizmo();
     Unload();
     CloseWindow();
 
