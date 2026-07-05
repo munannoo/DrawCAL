@@ -39,7 +39,7 @@ void sceneManagerInit() {
 	// Register Learn Scenes
 	learnScenes[static_cast<int>(learnSceneId::LEARN_MENU)] = { learnMenuInit, learnMenuUpdate, learnMenuDraw, learnMenuUnload }; // pretty sure this is to be executed instead
 	learnScenes[static_cast<int>(learnSceneId::LEARN_FREEDRAW)] = { freeDrawInit, freeDrawUpdate, freeDrawDraw, freeDrawUnload };
-	learnScenes[static_cast<int>(learnSceneId::LEARN_GUIDED)] = { NULL, NULL, NULL, NULL }; // Placeholder for Guided learning mode
+	learnScenes[static_cast<int>(learnSceneId::LEARN_GUIDED)] = { GuidedModeInit, GuidedModeUpdate, GuidedModeDraw, GuidedModeUnload }; // Placeholder for Guided learning mode
 	learnScenes[static_cast<int>(learnSceneId::LEARN_TUTORIAL)] = { NULL, NULL, NULL, NULL }; // Placeholder for Tutorial learning mode
 	// Register Options Scenes
 	optionScenes[static_cast<int>(optionSceneId::OPTIONS_MENU)] = { optionsMenuInit, optionsMenuUpdate, optionsMenuDraw, optionsMenuUnload };

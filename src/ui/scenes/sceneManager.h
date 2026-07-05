@@ -11,6 +11,7 @@
 #include "learnMenuScenes.h"
 #include "mainMenuOptions.h"
 #include "features/learning/FreeDrawMode.h"
+#include "features/learning/GuidedMode.h"
 
 #include "rendering/resolution.h" // For dynamic button size management
 

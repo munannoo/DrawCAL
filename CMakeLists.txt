@@ -23,7 +23,8 @@ FetchContent_MakeAvailable(raygui)
 
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 
-add_executable(drawcal_app ${SOURCES})
+add_executable(drawcal_app ${SOURCES}
+    src/features/learning/GuidedMode.hpp)
 
 target_include_directories(drawcal_app PRIVATE 
     src/
