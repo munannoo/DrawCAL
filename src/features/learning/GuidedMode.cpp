@@ -1,11 +1,13 @@
 #include "raylib.h"
 #include "raygui.h"
 #include "features/learning/GuidedMode.h"
+#include "ui/scenes/sceneManager.h"
 
 static Rectangle cubeBtn;
 static Rectangle sphereBtn;
 static Rectangle cylinderBtn;
 static Rectangle importBtn;
+static Rectangle backBtn;
 
 //---------------------------------------------------------
 // Draw a custom rounded button
@@ -62,6 +64,12 @@ void GuidedModeInit()
                   startY + buttonSize + spacing,
                   buttonSize,
                   buttonSize };
+    backBtn = {
+        20,
+        20,
+        110,
+        45
+    };
 }
 
 void GuidedModeUpdate()
@@ -89,11 +97,17 @@ void GuidedModeUpdate()
     {
         // TODO: Import Model
     }
+    if (CheckCollisionPointRec(GetMousePosition(), backBtn) &&
+        IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+    {
+        pendingLearnScene = learnSceneId::LEARN_MENU;
+    }
 }
 
 void GuidedModeDraw()
 {
    ClearBackground(RAYWHITE);
+   DrawRoundedButton(backBtn, GRAY, "< Back");
 
     const char* title = "Guided Mode";
 
@@ -110,7 +124,7 @@ void GuidedModeDraw()
     DrawRoundedButton(cylinderBtn, Color{230, 126, 34, 255}, "Cylinder");
     DrawRoundedButton(importBtn, Color{155, 89, 182, 255}, "Import");
 }
- 
+
 void GuidedModeUnload()
 {
     // Nothing to unload
