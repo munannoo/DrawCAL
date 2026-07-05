@@ -7,45 +7,110 @@ static Rectangle sphereBtn;
 static Rectangle cylinderBtn;
 static Rectangle importBtn;
 
+//---------------------------------------------------------
+// Draw a custom rounded button
+//---------------------------------------------------------
+void DrawRoundedButton(Rectangle bounds, Color color, const char* text)
+{
+    bool hovered = CheckCollisionPointRec(GetMousePosition(), bounds);
+
+    Color drawColor = hovered ? Fade(color, 0.8f) : color;
+
+    DrawRectangleRounded(bounds, 0.20f, 8, drawColor);
+
+    // Optional border
+    DrawRectangleRoundedLines(bounds, 0.20f, 8, BLACK);
+
+    int fontSize = 22;
+
+    DrawText(
+        text,
+        bounds.x + (bounds.width - MeasureText(text, fontSize)) / 2,
+        bounds.y + bounds.height - 38,
+        fontSize,
+        WHITE
+    );
+}
+
 void GuidedModeInit()
 {
-    cubeBtn     = {20, 20, 120, 35};
-    sphereBtn   = {20, 65, 120, 35};
-    cylinderBtn = {20,110,120,35};
-    importBtn   = {20,155,120,35};
+    const float buttonSize = 170.0f;
+    const float spacing = 30.0f;
+
+    float totalWidth = buttonSize * 2 + spacing;
+    float totalHeight = buttonSize * 2 + spacing;
+
+    float startX = (GetScreenWidth() - totalWidth) / 2;
+    float startY = (GetScreenHeight() - totalHeight) / 2;
+
+    cubeBtn = { startX,
+                startY,
+                buttonSize,
+                buttonSize };
+
+    sphereBtn = { startX + buttonSize + spacing,
+                  startY,
+                  buttonSize,
+                  buttonSize };
+
+    cylinderBtn = { startX,
+                    startY + buttonSize + spacing,
+                    buttonSize,
+                    buttonSize };
+
+    importBtn = { startX + buttonSize + spacing,
+                  startY + buttonSize + spacing,
+                  buttonSize,
+                  buttonSize };
 }
 
 void GuidedModeUpdate()
 {
-    if (GuiButton(cubeBtn, "Cube"))
+    if (CheckCollisionPointRec(GetMousePosition(), cubeBtn) &&
+        IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
-        // Create cube
+        // TODO: Create Cube
     }
 
-    if (GuiButton(sphereBtn, "Sphere"))
+    if (CheckCollisionPointRec(GetMousePosition(), sphereBtn) &&
+        IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
-        // Create sphere
+        // TODO: Create Sphere
     }
 
-    if (GuiButton(cylinderBtn, "Cylinder"))
+    if (CheckCollisionPointRec(GetMousePosition(), cylinderBtn) &&
+        IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
-        // Create cylinder
+        // TODO: Create Cylinder
     }
 
-    if (GuiButton(importBtn, "Import"))
+    if (CheckCollisionPointRec(GetMousePosition(), importBtn) &&
+        IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
-        // Import model
+        // TODO: Import Model
     }
 }
 
 void GuidedModeDraw()
 {
-    GuiButton(cubeBtn, "Cube");
-    GuiButton(sphereBtn, "Sphere");
-    GuiButton(cylinderBtn, "Cylinder");
-    GuiButton(importBtn, "Import");
-}
+   ClearBackground(RAYWHITE);
 
+    const char* title = "Guided Mode";
+
+    DrawText(
+        title,
+        (GetScreenWidth() - MeasureText(title, 40)) / 2,
+        80,
+        40,
+        DARKGRAY
+    );
+
+    DrawRoundedButton(cubeBtn, Color{52, 152, 219, 255}, "Cube");
+    DrawRoundedButton(sphereBtn, Color{46, 204, 113, 255}, "Sphere");
+    DrawRoundedButton(cylinderBtn, Color{230, 126, 34, 255}, "Cylinder");
+    DrawRoundedButton(importBtn, Color{155, 89, 182, 255}, "Import");
+}
+ 
 void GuidedModeUnload()
 {
     // Nothing to unload
