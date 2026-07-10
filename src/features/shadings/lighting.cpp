@@ -223,8 +223,8 @@ int CreatePointLight(Vector3 position)
     light.target = { 0.0f, 0.0f, 0.0f };
 
     light.color = WHITE;
-    light.intensity = 350.0f;
-    light.radius = 35.0f;
+    light.intensity = 700.0f;
+    light.radius = 100.0f;
 
     light.type = SCENE_LIGHT_POINT;
     light.enabled = true;
