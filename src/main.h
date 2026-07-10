@@ -16,7 +16,7 @@
 #include "ui/scenes/sceneManager.h"
 
 #include "rendering/resolution.h" // resolution indices
-
+#include "features/learning/GuidedMode.h"
 
 extern bool exitWindow; // Use exitWindow for added functionality alongside the main menu exit button
 

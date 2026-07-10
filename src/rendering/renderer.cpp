@@ -52,9 +52,9 @@ void DrawCameraScene(const Camera3D &camera)
         rlEnableBackfaceCulling();
         SyncObjectLightsToScene();
         UpdateLighting(camera);
-        frameCube();
-        frameSphere();
-        frameCylinder();
+        renderCube();
+        renderSphere();
+        renderCylinder();
         DrawSceneLights();
         drawObjectTransformGizmo(camera);
 

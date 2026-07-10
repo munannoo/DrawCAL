@@ -12,20 +12,22 @@
 #include "features/learning/FreeDrawMode.h"
 #include "ui/scenes/sceneManager.h"
 
+enum viewIndex { VIEW_NONE = -1, VIEW_FREE = 0, VIEW_FRONT, VIEW_TOP, VIEW_LEFT, VIEW_RIGHT };
+// selected view (0=Front,1=Top,2=Left,3=Right)
 // Put free draw mode specific variables/Textures here, they will be initialised in freeDrawInit and unloaded in freeDrawUnload
 static struct freeDrawState {
 	Camera3D camera;
 	Rectangle drawArea;
 	int check;
 	bool mouseButtonPressed;
-	bool initiliased;
-	bool dropdownEditmode;
+	bool initiliased; // if the init function has been called
+	bool dropdownEditmode; 
 	// View dropdown state (top-right)
-	int viewIndex;       // selected view (0=Front,1=Top,2=Left,3=Right)
-	int lastViewIndex;   // used to detect changes
-	bool viewDropdownOpen;
+	viewIndex currentViewIndex, lastViewIndex;
+	bool viewDropdownOpen; 
 	bool cameraLocked;   // when true, camera controller movement is disabled (only zoom allowed)
-	bool helpTip;
+	bool helpTip; // Press F1
+
 } freeDrawState;
 
 void freeDrawInit();
@@ -33,4 +35,6 @@ void freeDrawUpdate();
 void freeDrawDraw();
 void freeDrawUnload();
 
+void changeCameraView();
+void getProperties();
 #endif // FreeDrawMode_H

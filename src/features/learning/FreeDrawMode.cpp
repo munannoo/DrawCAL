@@ -12,8 +12,8 @@ void freeDrawInit() {
     freeDrawState.drawArea = { 200,140,220,44 };
 	freeDrawState.initiliased = true;
 	freeDrawState.mouseButtonPressed = false;
-    freeDrawState.viewIndex = 0;
-    freeDrawState.lastViewIndex = 0;
+    freeDrawState.currentViewIndex = VIEW_FREE;
+    freeDrawState.lastViewIndex = VIEW_FREE;
     freeDrawState.viewDropdownOpen = false;
     freeDrawState.cameraLocked = false;
     freeDrawState.helpTip = false;
@@ -54,6 +54,7 @@ void freeDrawUpdate() {
     }
 
 
+
     //if (currentResIndex != lastResIndex) {
     //    SetWindowSize(cr[currentResIndex].width, cr[currentResIndex].height);
     //    lastResIndex = currentResIndex;
@@ -78,26 +79,58 @@ void freeDrawDraw() {
         sceneManagerChangeScene(sceneId::SCENE_OPTIONS);
     }
     GuiDrawIcon(ICON_GEAR_BIG, btnOptionsIcon.x, btnOptionsIcon.y, 2, BLACK);
+
     //topBar(currentResIndex, freeDrawState.dropdownEditmode);
+
+    changeCameraView();
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || freeDrawState.mouseButtonPressed) {
+        contextMenu(freeDrawState.mouseButtonPressed, freeDrawState.camera); // under InputHandler.cpp
+    }
+
+    // Properties tab — middle right
+    getProperties();
+    
+
+    // Draw camera controller settings overlay for user reference
+    if (freeDrawState.helpTip)
+    {
+        drawCameraControllerSettings();
+    }
+}
+
+void freeDrawUnload() {
+    freeDrawState.initiliased = false;
+    UnloadTransformGizmo();
+    UnloadTextures();
+    UnloadLighting();
+    unloadModels();
+}
+
+void changeCameraView() {
     // Top-right view dropdown
     const int viewW = 140;
     const int viewH = 30;
-    Rectangle viewRect = { (float)GetScreenWidth()/(float)2 - viewW/2, viewH, (float)viewW, (float)viewH };
+    Rectangle viewRect = { (float)GetScreenWidth() / (float)2 - viewW / 2, viewH, (float)viewW, (float)viewH };
     const char* viewOptions = "Free;Front;Top;Left;Right";
-    // When GuiDropdownBox returns true it toggles the open state
-    if (GuiDropdownBox(viewRect, viewOptions, &freeDrawState.viewIndex, freeDrawState.viewDropdownOpen)) {
+    static int activeViewIndex = static_cast<int>(freeDrawState.currentViewIndex);
+
+    // Dropdown box, main key
+    if (GuiDropdownBox(viewRect, viewOptions, &activeViewIndex, freeDrawState.viewDropdownOpen)) {
         freeDrawState.viewDropdownOpen = !freeDrawState.viewDropdownOpen;
     }
-    
+
+    freeDrawState.currentViewIndex = static_cast<viewIndex>(activeViewIndex);
+
     // If view selection changed, apply camera preset and lock camera movement
-    if (freeDrawState.viewIndex != freeDrawState.lastViewIndex) {
+    if (freeDrawState.currentViewIndex != freeDrawState.lastViewIndex) {
         // Apply presets based on selection (0 = Free/unlocked)
-        switch (freeDrawState.viewIndex) {
-            case 0: // Free - restore default controller camera
+        switch (freeDrawState.currentViewIndex) {
+            case VIEW_FREE: // Free - restore default controller camera
                 InitCamera(freeDrawState.camera);
                 freeDrawState.cameraLocked = false;
                 break;
-            case 1: // Front
+            case VIEW_FRONT: // Front
                 freeDrawState.camera.position = { 0.0f, 0.0f, 10.0f };
                 freeDrawState.camera.target = { 0.0f, 0.0f, 0.0f };
                 freeDrawState.camera.up = { 0.0f, 1.0f, 0.0f };
@@ -105,7 +138,7 @@ void freeDrawDraw() {
                 freeDrawState.camera.fovy = 45.0f;
                 freeDrawState.cameraLocked = true;
                 break;
-            case 2: // Top
+            case VIEW_TOP: // Top
                 freeDrawState.camera.position = { 0.0f, 10.0f, 0.0f };
                 freeDrawState.camera.target = { 0.0f, 0.0f, 0.0f };
                 freeDrawState.camera.up = { 0.0f, 0.0f, -1.0f };
@@ -113,7 +146,7 @@ void freeDrawDraw() {
                 freeDrawState.camera.fovy = 45.0f;
                 freeDrawState.cameraLocked = true;
                 break;
-            case 3: // Left
+            case VIEW_LEFT: // Left
                 freeDrawState.camera.position = { -10.0f, 0.0f, 0.0f };
                 freeDrawState.camera.target = { 0.0f, 0.0f, 0.0f };
                 freeDrawState.camera.up = { 0.0f, 1.0f, 0.0f };
@@ -121,7 +154,7 @@ void freeDrawDraw() {
                 freeDrawState.camera.fovy = 45.0f;
                 freeDrawState.cameraLocked = true;
                 break;
-            case 4: // Right
+            case VIEW_RIGHT: // Right
                 freeDrawState.camera.position = { 10.0f, 0.0f, 0.0f };
                 freeDrawState.camera.target = { 0.0f, 0.0f, 0.0f };
                 freeDrawState.camera.up = { 0.0f, 1.0f, 0.0f };
@@ -129,15 +162,16 @@ void freeDrawDraw() {
                 freeDrawState.camera.fovy = 45.0f;
                 freeDrawState.cameraLocked = true;
                 break;
+			case VIEW_NONE:
+			default:
+                break;
         }
-        freeDrawState.lastViewIndex = freeDrawState.viewIndex;
+        freeDrawState.lastViewIndex = freeDrawState.currentViewIndex;
     }
+}
 
-    if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || freeDrawState.mouseButtonPressed) {
-        contextMenu(freeDrawState.mouseButtonPressed, freeDrawState.camera); // under InputHandler.cpp
-    }
 
-    // Properties tab — middle right
+void getProperties() {
     {
         const float panelW = 260.0f;
         const float panelH = 240.0f;
@@ -159,7 +193,7 @@ void freeDrawDraw() {
             DrawText(TextFormat("Multiple selected: %d", total), (int)(px + 8), (int)ty, 12, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
         }
         else {
-            ObjectInstance sel = {0};
+            ObjectInstance sel = { 0 };
             int selType = 0;
             int selIndex = -1;
             if (getFirstSelected(&sel, &selType, &selIndex)) {
@@ -192,17 +226,4 @@ void freeDrawDraw() {
             }
         }
     }
-
-    // Draw camera controller settings overlay for user reference
-    if (freeDrawState.helpTip)
-    {
-        drawCameraControllerSettings();
-    }
-}
-
-void freeDrawUnload() {
-    freeDrawState.initiliased = false;
-    UnloadTransformGizmo();
-
-	// Put texture unload function here
 }

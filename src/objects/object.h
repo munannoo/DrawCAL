@@ -3,6 +3,15 @@
 
 #include "raylib.h"
 #include "features/manipulation/transform.h"
+#include <float.h>
+#include "raymath.h"
+#include "rlgl.h"
+#include "features/shadings/textures.h"
+#include "features/shadings/lighting.h"
+#include "data/save_load/saveNload.h"
+#include <iostream>
+#include <vector>
+
 void initModels();
 void DrawSceneForShadowMap();
 void UploadSceneToRayTracer();
@@ -10,10 +19,13 @@ void SyncObjectLightsToScene();
 void cube(const Vector3 pos, Color color = GRAY);
 void sphere(const Vector3 pos, Color color = GRAY);
 void cylinder(const Vector3 pos, Color color = GRAY);
-void frameCube();
-void frameSphere();
-void frameCylinder();
-void Unload();
+void renderCube();
+void renderSphere();
+void renderCylinder();
+
+// Unload the models, required because the objects are defined static, and 
+void unloadModels();
+
 void leftclick(Ray ray);
 bool updateObjectTransformGizmo(Camera3D camera);
 // obsolete ig, but idk
@@ -27,4 +39,8 @@ int getTotalSelectedCount();
 void drawObjectTransformGizmo(Camera3D camera);
 void lightSphere(const Vector3 pos, Color color);
 void deleteobj();
+
+//load and save functions, defined in object.cpp but main logic is present in saveNload.cpp
+void load();
+void save();
 #endif // object_h

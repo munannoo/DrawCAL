@@ -20,9 +20,7 @@ int main()
 
 	sceneManagerInit(); // Initialize the scene manager, only needs to be called once
 
-    initModels(); // Initialize the Models, only needs to be called once
-    InitTransformGizmo();
-    initgridShader();
+
 
     // Main loop (Runs each frame until the window closes)
     while (!exitWindow)
@@ -77,8 +75,7 @@ int main()
         EndDrawing();
     }
     // we do have an unload function
-    //UnloadTransformGizmo();
-    Unload();
+    //UnloadTransformGizmo(); Thsi is unloaded in freedrawdraw (this is required for free draw)
     CloseWindow();
 
     return 0;
