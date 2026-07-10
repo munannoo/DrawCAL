@@ -72,7 +72,8 @@ target_link_libraries(r3d PRIVATE raylib)
 # CONFIGURE_DEPENDS ensures that CMake will re-run if new .cpp files are added to the src directory
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp") 
 
-add_executable(drawcal_app ${SOURCES})
+add_executable(drawcal_app ${SOURCES}
+    src/features/learning/GuidedMode.hpp)
 
 # Add include directories for the drawcal_app target, PRIVATE means that these include directories are only used for compiling drawcal_app
 target_include_directories(drawcal_app PRIVATE 
