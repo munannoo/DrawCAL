@@ -1,14 +1,28 @@
 # Project Visualizer
 
+
+
 ## Build Instructions
+Initial Things to do:
+
+'''bash
+git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+cd C:\vcpkg
+.\bootstrap-vcpkg.bat
+.\vcpkg install mongo-cxx-driver:x64-windows
+
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake --build build
+'''
 
 To build the project package, run:
-
+# DO NOT DO THIS IN THE SAME TERMINAL AS BEFORE
 ```bash
-mkdir build
-cd build
-cmake ..
-cmake --build .
+cmake -S . -B build -A x64 `
+  -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
+  -DVCPKG_TARGET_TRIPLET=x64-windows
+
+cmake --build build --config Debug
 ```
 
 ## Compile in VS Code
