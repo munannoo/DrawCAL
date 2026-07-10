@@ -5,15 +5,14 @@
 ## Build Instructions
 Initial Things to do:
 
-'''bash
+```bash
 git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
 cd C:\vcpkg
 .\bootstrap-vcpkg.bat
 .\vcpkg install mongo-cxx-driver:x64-windows
-
 cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
 cmake --build build
-'''
+```
 
 To build the project package, run:
 # DO NOT DO THIS IN THE SAME TERMINAL AS BEFORE
