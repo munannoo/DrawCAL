@@ -43,7 +43,7 @@ FetchContent_MakeAvailable(raygui)
 FetchContent_Declare(
     assimp
     GIT_REPOSITORY https://github.com/assimp/assimp.git
-    GIT_TAG ${ASSIMP_GIT_TAG}
+    GIT_TAG v6.0.5
     GIT_SHALLOW TRUE
     OVERRIDE_FIND_PACKAGE ON # Makes it so that find_package(assimp) will find this instead of any system-installed version
 )
@@ -63,6 +63,9 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(r3d)
+
+# Link r3d to raylib
+target_link_libraries(r3d PRIVATE raylib)
 
 
 # Searches for all .cpp files in the src directory recursively and stores to variable SOURCES

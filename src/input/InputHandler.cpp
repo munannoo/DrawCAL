@@ -15,7 +15,7 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
     static int subActive = -1;
     static int state = STATE_BASE;
 
-    char** submenuText = NULL;
+    const char** submenuText = NULL;
     int subMenuSize = 0;
 
     Rectangle menuRec = { 0, 0, 125, 180 };
@@ -43,22 +43,22 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
         state = STATE_SHOW_MENU;
     }
 
-    static char menuInsertMesh[] = "Insert Mesh";
-    static char menuObjectEditing[] = "Object Editing";
-    static char menuDeleteObject[] = "Delete Object";
+    static const char* menuInsertMesh = "Insert Mesh";
+    static const char* menuObjectEditing = "Object Editing";
+    static const char* menuDeleteObject = "Delete Object";
 
-    char* rootMenu[] = {
+    static const char* rootMenu[] = {
         menuInsertMesh,
         menuObjectEditing,
         menuDeleteObject
     };
 
-    static char addCube[] = "Insert Cube";
-    static char addSphere[] = "Insert Sphere";
-    static char addCylinder[] = "Insert Cylinder";
-    static char addPointLight[] = "Insert Point Light";
+    static const char* addCube = "Insert Cube";
+    static const char* addSphere = "Insert Sphere";
+    static const char* addCylinder = "Insert Cylinder";
+    static const char* addPointLight = "Insert Point Light";
 
-    char* addMesh[] = {
+    static const char* addMesh[] = {
         addCube,
         addSphere,
         addCylinder,

@@ -3,8 +3,10 @@
 //Initialise Menu
 void menuInit() {
 	btnPlay = { btnLeft, btnTop, btnWidth, btnHeight };
-	btnOptions = { btnLeft, btnTop + 1 * btnGap, btnWidth, btnHeight };
-	btnExit = { btnLeft, btnTop + 2 * btnGap, btnWidth, btnHeight };
+	btnSave = { btnLeft, btnTop + 1 * btnGap, btnWidth, btnHeight };
+	btnLoad = { btnLeft, btnTop + 2 * btnGap, btnWidth, btnHeight };
+	btnOptions = { btnLeft, btnTop + 3 * btnGap, btnWidth, btnHeight };
+	btnExit = { btnLeft, btnTop + 4 * btnGap, btnWidth, btnHeight };
 }
 
 void menuUnload() {
@@ -18,6 +20,8 @@ void menuUpdate() {
 void menuDraw() {
 	DrawText("DrawCAL", btnLeft, btnTop - 1 * btnGap, 20, BLACK);
 	if (GuiButton(btnPlay, "Learn")) sceneManagerChangeScene(sceneId::SCENE_LEARN);
+	if (GuiButton(btnSave, "Save")) save();
+	if (GuiButton(btnLoad, "Load")) load();
 	if (GuiButton(btnOptions, "Options")) { sceneManagerChangeScene(sceneId::SCENE_OPTIONS); TraceLog(LOG_INFO, "Clicked %d", pendingScene); }
 	if (GuiButton(btnExit, "Exit")) {
 		menuUnload();

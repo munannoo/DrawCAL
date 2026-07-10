@@ -11,6 +11,7 @@
 #include "learnMenuScenes.h"
 #include "mainMenuOptions.h"
 #include "features/learning/FreeDrawMode.h"
+#include "data/save_load/saveNload.h"
 
 #include "rendering/resolution.h" // For dynamic button size management
 
@@ -41,7 +42,7 @@ struct sceneFunctions {
     void (*Unload)();
 };
 
-extern Rectangle btnPlay, btnEditor, btnOptions, btnExit;
+extern Rectangle btnPlay, btnEditor, btnOptions, btnExit, btnSave, btnLoad;
 extern Rectangle btnFreeDraw, btnGuided, btnTutorial, btnBack;
 extern Rectangle btnGraphics, btnControls, btnInterface;
 extern Rectangle btnResolution, btnVSync, btnFullScreen;
@@ -70,6 +71,7 @@ void sceneManagerChangeScene(optionSceneId);
 void sceneManagerInit(); // Initialize scene manager, register scenes
 void sceneManagerUpdate(); // Call every frame: runs Update for active scene and performs switchover
 void sceneManagerDraw(); // Call every frame: runs Draw for active scene
+//void sceneManagerUnload(); // Call on exit: runs Unload for the main body, call only at the end of the program
 
 #endif // !SCENE_MANAGER
 

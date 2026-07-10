@@ -1,12 +1,10 @@
-#include "features/manipulation/Transform.h"
-#include <iostream>
-#include <fstream>
-#include "json.hpp"
-#include "objects/object.h"
+
 #include "data/save_load/saveNload.h"
-#include "features/shadings/lighting.h"
+// since json is not natively supported by cpp
 using json = nlohmann::json;
 
+
+// Convert the raylib properties into json
 static json vector3ToJson(Vector3 v) {
     return {
         {"x", v.x},
@@ -14,7 +12,6 @@ static json vector3ToJson(Vector3 v) {
         {"z", v.z}
     };
 }
-
 static json colorToJson(Color color) {
     return {
         {"r", color.r},
@@ -23,6 +20,7 @@ static json colorToJson(Color color) {
         {"a", color.a}
     };
 }
+
 static const char* MaterialTypeToString(MaterialType material)
 {
     switch (material) {
@@ -39,6 +37,8 @@ static MaterialType StringToMaterialType(const std::string& material)
     if (material == "plastic") return MATERIAL_PLASTIC;
     return MATERIAL_CONCRETE;
 }
+
+// Add new object information to the end of the json file
 static void addObject(json& sceneData, const char* type, ObjectInstance& obj) {
     json objectData;
 
@@ -55,6 +55,8 @@ static void addObject(json& sceneData, const char* type, ObjectInstance& obj) {
     sceneData["objects"].push_back(objectData);
 }
 
+
+// Main Save Function, calls the other functions upwards
 void saveScene(
     ObjectInstance Cu[], int c,
     ObjectInstance Sp[], int s,
@@ -87,6 +89,8 @@ void saveScene(
 
     std::cout << "Scene saved.\n";
 }
+
+
 static Vector3 jsonToVector3(const json& data) {
     return Vector3{
         data.value("x", 0.0f),

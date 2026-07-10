@@ -1,14 +1,4 @@
 #include "object.h"
-#include "features/manipulation/Transform.h"
-#include "raylib.h"
-#include <float.h>
-#include "raymath.h"
-#include "rlgl.h"
-#include "features/shadings/textures.h"
-#include "features/shadings/lighting.h"
-#include "data/save_load/saveNload.h"
-#include <iostream>
-#include <vector>
 
 static Model cubeModel;
 static Model sphereModel;
@@ -22,7 +12,7 @@ static ObjectInstance Cu[100];
 static ObjectInstance Sp[100];
 static ObjectInstance cy[100];
 
-enum ObjectType { NONE, CUBE, SPHERE, CYLINDER };
+enum ObjectType { NONE, CUBE, SPHERE, CYLINDER, CUSTOM };
 
 static void DrawObjectModel(Model &model, ObjectInstance obj, Color color);
 static Matrix GetObjectTransform(ObjectInstance obj);
@@ -53,6 +43,8 @@ void load(){
 void save(){
     saveScene(Cu, c, Sp, s, cy, y);
 }
+
+// Manages triangles for lighitng issues
 static Mesh GenTexturedCylinder(float radius, float height, int slices)
 {
     Mesh mesh = { 0 };
@@ -228,6 +220,7 @@ static Mesh GenTexturedCylinder(float radius, float height, int slices)
 
     return mesh;
 }
+
 void initModels()
 {
     InitLighting();
@@ -254,8 +247,6 @@ void initModels()
     ApplyLightingShader(sphereModel);
     ApplyLightingShader(cylinderModel);
 
-
-    load();
     EnsureSceneVertices();
 }
 void UploadSceneToRayTracer()
@@ -542,15 +533,17 @@ void SyncObjectLightsToScene()
     }
 }
 
-void frameCube() {
+// render all items
+// render cube
+void renderCube() {
     for (int i = 0; i < c; i++) {
         Color renderColor = Cu[i].color;
         renderColor.a = Cu[i].isSelected ? 128 : 255; // changes transparency when objec tis selected
         DrawObjectModel(cubeModel, Cu[i], renderColor);
     }
 }
-
-void frameSphere() {
+//render sphere
+void renderSphere() {
     for (int i = 0; i < s; i++) {
 
         if (Sp[i].isLight && Sp[i].lightIndex >= 0) {
@@ -578,24 +571,17 @@ void frameSphere() {
         DrawObjectModel(sphereModel, Sp[i], renderColor);
     }
 }
-
-void frameCylinder() {
+//render cylinder
+void renderCylinder() {
     for (int i = 0; i < y; i++) {
         Color renderColor = cy[i].color;
         renderColor.a = cy[i].isSelected ? 128 : 255; // changes transparency when objec tis selected
         DrawObjectModel(cylinderModel, cy[i], renderColor);
     }
 }
-void Unload(void) {
-    save();
-    UnloadModel(cubeModel);
-    UnloadModel(sphereModel);
-    UnloadModel(cylinderModel);
-    UnloadTextures();
-    UnloadLighting();
-}
-void leftclick(Ray ray){
-    
+
+// selection function
+void leftclick(Ray ray){    
     int closestIdx = -1;
     ObjectType closestType = NONE;
     float closestDist = FLT_MAX;
@@ -687,6 +673,7 @@ static void DrawObjectModel(Model& model, ObjectInstance obj, Color color)
 
     DrawModel(tempModel, { 0.0f, 0.0f, 0.0f }, 1.0f, color);
 }
+
 bool updateObjectTransformGizmo(Camera3D camera) {
     return UpdateTransformGizmo(
         camera,
@@ -704,6 +691,7 @@ void drawObjectTransformGizmo(Camera3D camera) {
     );
     DrawSelectedVertexHandles(camera);
 }
+
 void lightSphere(const Vector3 pos, Color color)
 {
     if (s < 100)
@@ -737,6 +725,7 @@ void lightSphere(const Vector3 pos, Color color)
         s++;
     }
 }
+
 void deleteobj() {
     for (int i = 0; i < c; i++) {
         if (Cu[i].isSelected) {
@@ -779,4 +768,13 @@ void deleteobj() {
             i--;
         }
     }
+}
+
+// ideally gonna use no models and just mesh
+// Would be better if nothing was static here
+void unloadModels(void) {
+    UnloadModel(cubeModel);
+    UnloadModel(sphereModel);
+    UnloadModel(cylinderModel);
+
 }

@@ -7,7 +7,7 @@ sceneFunctions scenes[static_cast<int>(sceneId::SCENE_COUNT)];
 sceneFunctions learnScenes[static_cast<int>(learnSceneId::LEARN_COUNT)];
 sceneFunctions optionScenes[static_cast<int>(optionSceneId::OPTIONS_COUNT)];
 // Define global buttons and state variables (single definition)
-Rectangle btnPlay, btnEditor, btnOptions, btnExit;
+Rectangle btnPlay, btnEditor, btnOptions, btnExit, btnSave, btnLoad;
 Rectangle btnFreeDraw, btnGuided, btnTutorial, btnBack;
 Rectangle btnGraphics, btnControls, btnInterface;
 Rectangle btnResolution, btnVSync, btnFullScreen;
@@ -30,6 +30,10 @@ optionSceneId pendingOptionScene = optionSceneId::OPTIONS_NONE;
 bool sceneInitialized = false; 
 
 void sceneManagerInit() {
+	initModels(); // Initialize the Models, only needs to be called once
+	InitTransformGizmo();
+	initgridShader();
+
 	changeButtonResolution();
 	GuiLoadStyleDefault();
 	// Register scenes
