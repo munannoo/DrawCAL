@@ -1,4 +1,5 @@
 #include "learnMenuScenes.h"
+#include "UiStyle.h"
 
 //Initialise Learn Scenes
 void learnMenuInit() {
@@ -17,7 +18,10 @@ void learnMenuUpdate() {
 }
 
 void learnMenuDraw() {
-	DrawText("LEARN", btnLeft, btnTop - 1 * btnGap, 20, BLACK);
+	UiStyle::LoadMinimalStyle();
+	UiStyle::DrawBackground();
+	UiStyle::DrawSceneHeader("Learn", "Choose your path.", btnTop - 68.0f, btnTop - 28.0f);
+
 	if (GuiButton(btnFreeDraw, "Free Draw")) sceneManagerChangeScene(learnSceneId::LEARN_FREEDRAW);
 	if (GuiButton(btnGuided, "Guided")) sceneManagerChangeScene(learnSceneId::LEARN_GUIDED);
 	if (GuiButton(btnTutorial, "Tutorial")) sceneManagerChangeScene(learnSceneId::LEARN_TUTORIAL);
