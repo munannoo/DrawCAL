@@ -53,25 +53,20 @@ jobs:
         run: |
           mkdir -p dist
 
-          echo "Looking for built executable..."
-          find build -type f -perm -111 -maxdepth 5 || true
-
-          if [ -f "build/drawcal/drawcal" ]; then
-            cp build/drawcal/drawcal dist/
-          elif [ -f "build/drawcal" ]; then
-            cp build/drawcal dist/
-          elif [ -f "build/DrawCAL" ]; then
-            cp build/DrawCAL dist/
-          else
-            echo "Could not find executable automatically."
-            echo "Build folder:"
-            find build -maxdepth 5 -type f
+          # CMake intentionally places every configuration in the repository's
+          # drawcal directory, not inside the build tree.
+          executable="drawcal/drawcal"
+          if [ ! -f "$executable" ]; then
+            echo "Expected executable was not produced at $executable"
+            find drawcal build -maxdepth 4 -type f -print || true
             exit 1
           fi
 
-          cp -r shaders dist/ || true
-          cp -r textures dist/ || true
-          cp -r resources dist/ || true
+          cp "$executable" dist/drawcal
+          chmod +x dist/drawcal
+          cp -R drawcal/shaders dist/shaders
+          cp -R drawcal/textures dist/textures
+          if [ -f scene.drawcal ]; then cp scene.drawcal dist/; fi
 
       - name: Upload executable
         uses: actions/upload-artifact@v4
