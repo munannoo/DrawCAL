@@ -254,32 +254,88 @@ void UploadSceneToRayTracer()
     // Legacy compatibility no-op. Ray tracing was removed from the active
     // rendering path and replaced with rPBR-style PBR lighting.
 }
-bool getFirstSelected(ObjectInstance* out, int* outType, int* outIndex) {
-    for (int i = 0; i < c; i++) {
-        if (Cu[i].isSelected) {
-            if (out) *out = Cu[i];
+ObjectInstance* getFirstSelectedMutable(int* outType, int* outIndex)
+{
+    for (int i = 0; i < c; i++)
+    {
+        if (Cu[i].isSelected)
+        {
             if (outType) *outType = 1;
             if (outIndex) *outIndex = i;
-            return true;
+
+            return &Cu[i];
         }
     }
-    for (int i = 0; i < s; i++) {
-        if (Sp[i].isSelected) {
-            if (out) *out = Sp[i];
+
+    for (int i = 0; i < s; i++)
+    {
+        if (Sp[i].isSelected)
+        {
             if (outType) *outType = 2;
             if (outIndex) *outIndex = i;
-            return true;
+
+            return &Sp[i];
         }
     }
-    for (int i = 0; i < y; i++) {
-        if (cy[i].isSelected) {
-            if (out) *out = cy[i];
+
+    for (int i = 0; i < y; i++)
+    {
+        if (cy[i].isSelected)
+        {
             if (outType) *outType = 3;
             if (outIndex) *outIndex = i;
-            return true;
+
+            return &cy[i];
         }
     }
-    return false;
+
+    if (outType) *outType = 0;
+    if (outIndex) *outIndex = -1;
+
+    return nullptr;
+}
+
+bool getFirstSelected(
+    ObjectInstance* out,
+    int* outType,
+    int* outIndex
+)
+{
+    ObjectInstance* selected =
+        getFirstSelectedMutable(outType, outIndex);
+
+    if (selected == nullptr)
+    {
+        return false;
+    }
+
+    if (out)
+    {
+        *out = *selected;
+    }
+
+    return true;
+}
+
+void deselectAllObjects()
+{
+    for (int i = 0; i < c; i++)
+    {
+        Cu[i].isSelected = false;
+    }
+
+    for (int i = 0; i < s; i++)
+    {
+        Sp[i].isSelected = false;
+    }
+
+    for (int i = 0; i < y; i++)
+    {
+        cy[i].isSelected = false;
+    }
+
+    totalSelectedCount = 0;
+    selectedType = NONE;
 }
 
 int getTotalSelectedCount() {
@@ -777,4 +833,40 @@ void unloadModels(void) {
     UnloadModel(sphereModel);
     UnloadModel(cylinderModel);
 
+}
+
+int getObjectCount(int objectType)
+{
+    switch (objectType)
+    {
+        case CUBE: return c;
+        case SPHERE: return s;
+        case CYLINDER: return y;
+        default: return 0;
+    }
+}
+
+ObjectInstance* getObjectMutable(int objectType, int objectIndex)
+{
+    if (objectIndex < 0 || objectIndex >= getObjectCount(objectType)) return nullptr;
+
+    switch (objectType)
+    {
+        case CUBE: return &Cu[objectIndex];
+        case SPHERE: return &Sp[objectIndex];
+        case CYLINDER: return &cy[objectIndex];
+        default: return nullptr;
+    }
+}
+
+bool selectObject(int objectType, int objectIndex, bool additive)
+{
+    ObjectInstance* object = getObjectMutable(objectType, objectIndex);
+    if (object == nullptr) return false;
+
+    if (!additive) deselectAllObjects();
+    object->isSelected = additive ? !object->isSelected : true;
+    totalSelectedCount = getTotalSelectedCount();
+    selectedType = object->isSelected ? static_cast<ObjectType>(objectType) : NONE;
+    return true;
 }

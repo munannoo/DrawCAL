@@ -39,7 +39,7 @@ void sceneManagerInit() {
 	// Register scenes
 	scenes[static_cast<int>(sceneId::SCENE_MENU)] = { menuInit, menuUpdate, menuDraw, menuUnload };
 	scenes[static_cast<int>(sceneId::SCENE_LEARN)] = { learnMenuInit, learnMenuUpdate, learnMenuDraw, learnMenuUnload }; 
-	scenes[static_cast<int>(sceneId::SCENE_OPTIONS)] = { optionsMenuDraw, optionsMenuUpdate, optionsMenuDraw, optionsMenuUnload }; // Placeholder for Options menu]
+	scenes[static_cast<int>(sceneId::SCENE_OPTIONS)] = { optionsMenuInit, optionsMenuUpdate, optionsMenuDraw, optionsMenuUnload };
 	// Register Learn Scenes
 	learnScenes[static_cast<int>(learnSceneId::LEARN_MENU)] = { learnMenuInit, learnMenuUpdate, learnMenuDraw, learnMenuUnload }; // pretty sure this is to be executed instead
 	learnScenes[static_cast<int>(learnSceneId::LEARN_FREEDRAW)] = { freeDrawInit, freeDrawUpdate, freeDrawDraw, freeDrawUnload };
@@ -84,8 +84,23 @@ static void resolveMainSceneChanges() {
 			pendingOptionScene = optionSceneId::OPTIONS_MENU;
 		}
 
-		// Unload current scene
-		if (scenes[static_cast<int>(currentScene)].Unload) scenes[static_cast<int>(currentScene)].Unload(); // Execute only if function is executable
+		// Unload the active sub-scene while its resources are still valid.
+		if (currentScene == sceneId::SCENE_LEARN && currentLearnScene != learnSceneId::LEARN_NONE)
+		{
+			if (learnScenes[static_cast<int>(currentLearnScene)].Unload)
+				learnScenes[static_cast<int>(currentLearnScene)].Unload();
+			currentLearnScene = learnSceneId::LEARN_NONE;
+		}
+		else if (currentScene == sceneId::SCENE_OPTIONS && currentOptionScene != optionSceneId::OPTIONS_NONE)
+		{
+			if (optionScenes[static_cast<int>(currentOptionScene)].Unload)
+				optionScenes[static_cast<int>(currentOptionScene)].Unload();
+			currentOptionScene = optionSceneId::OPTIONS_NONE;
+		}
+		else if (scenes[static_cast<int>(currentScene)].Unload)
+		{
+			scenes[static_cast<int>(currentScene)].Unload();
+		}
 		currentScene = pendingScene;
 		pendingScene = sceneId::SCENE_NONE;
 		// Initialize new scene
@@ -119,8 +134,12 @@ static void resolveOptionSceneChanges() {
 	// Handle scene switching; going from learn menu to learn subscene or exiting out of learn mode back to main menu
 	if (pendingOptionScene != optionSceneId::OPTIONS_NONE) {
 		TraceLog(LOG_INFO, "123");
-		// Unload current scene
-		if (optionScenes[static_cast<int>(currentOptionScene)].Unload) optionScenes[static_cast<int>(currentOptionScene)].Unload();
+		// There is no current option sub-scene on the first visit.
+		if (currentOptionScene != optionSceneId::OPTIONS_NONE &&
+			optionScenes[static_cast<int>(currentOptionScene)].Unload)
+		{
+			optionScenes[static_cast<int>(currentOptionScene)].Unload();
+		}
 		currentOptionScene = pendingOptionScene;
 		pendingOptionScene = optionSceneId::OPTIONS_NONE;
 		// Initialize new scene

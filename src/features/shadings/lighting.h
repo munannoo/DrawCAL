@@ -47,6 +47,7 @@ void DrawSceneLights();
 
 void SetSceneLightPosition(int index, Vector3 position);
 void DeleteSceneLight(int index);
+void ClearSceneLights();
 
 SceneLight* GetSceneLights();
 int GetSceneLightCount();

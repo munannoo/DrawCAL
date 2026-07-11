@@ -208,6 +208,12 @@ void UnloadLighting()
     }
 }
 
+void ClearSceneLights()
+{
+    sceneLightCount = 0;
+    if (lightingShader.id != 0) DisableUnusedShaderLights(0);
+}
+
 int CreatePointLight(Vector3 position)
 {
     if (sceneLightCount >= MAX_SCENE_LIGHTS)
