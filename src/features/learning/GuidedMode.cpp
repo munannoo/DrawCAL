@@ -1,6 +1,7 @@
 #include "raylib.h"
 #include "raygui.h"
 #include "features/learning/GuidedMode.h"
+#include "objects/object.h"
 #include "ui/scenes/sceneManager.h"
 #include "ui/themes/themes.h"
 
@@ -9,6 +10,26 @@ static Rectangle sphereBtn;
 static Rectangle cylinderBtn;
 static Rectangle importBtn;
 static Rectangle backBtn;
+
+static void OpenWorkspaceWithObject(int objectType)
+{
+    const Vector3 spawnPosition = { 0.0f, 0.0f, 0.0f };
+    const int previousCount = getObjectCount(objectType);
+
+    switch (objectType)
+    {
+        case 1: cube(spawnPosition); break;
+        case 2: sphere(spawnPosition); break;
+        case 3: cylinder(spawnPosition); break;
+        default: return;
+    }
+
+    // Highlight the object that was just created when the workspace opens.
+    const int newCount = getObjectCount(objectType);
+    if (newCount > previousCount)
+        selectObject(objectType, newCount - 1);
+    sceneManagerChangeScene(learnSceneId::LEARN_FREEDRAW);
+}
 
 //---------------------------------------------------------
 // Draw a custom rounded button
@@ -76,25 +97,26 @@ void GuidedModeUpdate()
     if (CheckCollisionPointRec(GetMousePosition(), cubeBtn) &&
         IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
-        // TODO: Create Cube
+        OpenWorkspaceWithObject(1);
     }
 
     if (CheckCollisionPointRec(GetMousePosition(), sphereBtn) &&
         IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
-        // TODO: Create Sphere
+        OpenWorkspaceWithObject(2);
     }
 
     if (CheckCollisionPointRec(GetMousePosition(), cylinderBtn) &&
         IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
-        // TODO: Create Cylinder
+        OpenWorkspaceWithObject(3);
     }
 
     if (CheckCollisionPointRec(GetMousePosition(), importBtn) &&
         IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
-        // TODO: Import Model
+        load();
+        sceneManagerChangeScene(learnSceneId::LEARN_FREEDRAW);
     }
     if (CheckCollisionPointRec(GetMousePosition(), backBtn) &&
         IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
