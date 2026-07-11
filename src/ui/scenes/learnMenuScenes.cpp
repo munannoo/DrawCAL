@@ -22,7 +22,10 @@ void learnMenuDraw() {
 	UiStyle::DrawBackground();
 	UiStyle::DrawSceneHeader("Learn", "Choose your path.", btnTop - 68.0f, btnTop - 28.0f);
 
-	if (GuiButton(btnFreeDraw, "Free Draw")) sceneManagerChangeScene(learnSceneId::LEARN_FREEDRAW);
+	if (GuiButton(btnFreeDraw, "Free Draw")) {
+		SetGuidedWorkspace(false);
+		sceneManagerChangeScene(learnSceneId::LEARN_FREEDRAW);
+	}
 	if (GuiButton(btnGuided, "Guided")) sceneManagerChangeScene(learnSceneId::LEARN_GUIDED);
 	if (GuiButton(btnTutorial, "Tutorial")) sceneManagerChangeScene(learnSceneId::LEARN_TUTORIAL);
 
@@ -31,4 +34,3 @@ void learnMenuDraw() {
 		currentLearnScene = learnSceneId::LEARN_NONE;
 	}
 }
-

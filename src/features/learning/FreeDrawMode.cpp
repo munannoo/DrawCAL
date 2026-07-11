@@ -1,6 +1,15 @@
 #include "FreeDrawMode.h"
 #include "raylib.h"
 #include "raygui.h"
+
+static bool guidedWorkspace = false;
+
+void SetGuidedWorkspace(bool guided)
+{
+    guidedWorkspace = guided;
+    if (guided) freeDrawState.mouseButtonPressed = false;
+}
+
 namespace
 {
     static void DrawEditorText(const char* text, int x, int y, int fontSize, Color color)
@@ -674,7 +683,8 @@ void freeDrawUpdate() {
         freeDrawState.helpTip = !freeDrawState.helpTip;
     }
 
-    if (IsKeyPressed(KEY_BACKSPACE) && !IsPropertyEditorActive())
+    if (!guidedWorkspace && IsKeyPressed(KEY_BACKSPACE) &&
+        !IsPropertyEditorActive())
     {
         deleteobj();
         propertyBoundType = -1;
@@ -714,7 +724,9 @@ void freeDrawDraw() {
 
     changeCameraView();
 
-    if ((IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && !IsPointerOverEditorUi()) || freeDrawState.mouseButtonPressed) {
+    if (!guidedWorkspace &&
+        ((IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && !IsPointerOverEditorUi()) ||
+         freeDrawState.mouseButtonPressed)) {
         contextMenu(freeDrawState.mouseButtonPressed, freeDrawState.camera); // under InputHandler.cpp
     }
 

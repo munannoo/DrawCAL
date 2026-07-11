@@ -40,6 +40,9 @@ void freeDrawUpdate();
 void freeDrawDraw();
 void freeDrawUnload();
 
+// Guided sessions use the editor without the object-creation context menu.
+void SetGuidedWorkspace(bool guided);
+
 void changeCameraView();
 void getProperties();
 #endif // FreeDrawMode_H

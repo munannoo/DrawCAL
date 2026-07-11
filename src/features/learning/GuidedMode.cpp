@@ -28,6 +28,7 @@ static void OpenWorkspaceWithObject(int objectType)
     const int newCount = getObjectCount(objectType);
     if (newCount > previousCount)
         selectObject(objectType, newCount - 1);
+    SetGuidedWorkspace(true);
     sceneManagerChangeScene(learnSceneId::LEARN_FREEDRAW);
 }
 
@@ -116,6 +117,7 @@ void GuidedModeUpdate()
         IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
         load();
+        SetGuidedWorkspace(true);
         sceneManagerChangeScene(learnSceneId::LEARN_FREEDRAW);
     }
     if (CheckCollisionPointRec(GetMousePosition(), backBtn) &&
