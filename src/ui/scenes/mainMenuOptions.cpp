@@ -178,16 +178,16 @@ void optionsInterfaceUnload(){}
 
 void changeTheme() {
 	if (currentThemeIndex != lastThemeIndex) {
-		switch (currentThemeIndex) {
+			switch (currentThemeIndex) {
 			case 0:	GuiLoadStyleDefault();  break;
 			case 1: GuiLoadStyleDark(); TraceLog(LOG_INFO, "MyButton clicked"); break;
 			case 2: GuiLoadStyleCyber(); break;
 			case 3: GuiLoadStyleGenesis(); break;
 			case 4: GuiLoadStyleJungle(); break;
 			case 5: GuiLoadStyleAmber(); break;
-			default: break;
-		}
-		lastThemeIndex = currentThemeIndex;
+				default: break;
+			}
+			lastThemeIndex = currentThemeIndex;
 		changeButtonResolution();
 		optionsInterfaceInit();
 	}

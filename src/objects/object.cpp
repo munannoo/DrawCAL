@@ -642,8 +642,7 @@ void leftclick(Ray ray){
     ObjectType closestType = NONE;
     float closestDist = FLT_MAX;
     for(int i=0; i<c; i++){
-            BoundingBox bbox = GetTransformedBounds(Cubebounds, Cu[i].position, Cu[i].scale);
-            RayCollision collision = GetRayCollisionBox(ray, bbox);
+            RayCollision collision = GetRayCollisionMesh(ray, cubeModel.meshes[0], GetObjectTransform(Cu[i]));
             if(collision.hit && collision.distance < closestDist){
                 closestDist = collision.distance;
                 closestIdx = i;
@@ -651,8 +650,7 @@ void leftclick(Ray ray){
             }
         }
     for(int i=0; i<s; i++){
-            BoundingBox bbox = GetTransformedBounds(Spherebounds, Sp[i].position, Sp[i].scale);
-            RayCollision collision = GetRayCollisionBox(ray, bbox);
+            RayCollision collision = GetRayCollisionMesh(ray, sphereModel.meshes[0], GetObjectTransform(Sp[i]));
             if(collision.hit && collision.distance < closestDist){
                 closestDist = collision.distance;
                 closestIdx = i;
@@ -660,17 +658,16 @@ void leftclick(Ray ray){
             }
         }
     for(int i=0; i<y; i++){
-            BoundingBox bbox = GetTransformedBounds(Cylinderbounds, cy[i].position, cy[i].scale);
-            RayCollision collision = GetRayCollisionBox(ray, bbox);
+            RayCollision collision = GetRayCollisionMesh(ray, cylinderModel.meshes[0], GetObjectTransform(cy[i]));
             if(collision.hit && collision.distance < closestDist){
                 closestDist = collision.distance;
                 closestIdx = i;
                 closestType = CYLINDER;
             }
         }
-    bool isShiftDown = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
+    const bool additiveSelection = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
 
-        if (!isShiftDown) {
+        if (!additiveSelection) {
             
             for(int i=0; i<c; i++) Cu[i].isSelected = false;
             for(int i=0; i<s; i++) Sp[i].isSelected = false;
@@ -680,9 +677,13 @@ void leftclick(Ray ray){
 
         //Closest Object
         if (closestType != NONE) {
-            if (closestType == CUBE)     Cu[closestIdx].isSelected = !Cu[closestIdx].isSelected;
-            if (closestType == SPHERE)   Sp[closestIdx].isSelected = !Sp[closestIdx].isSelected;
-            if (closestType == CYLINDER) cy[closestIdx].isSelected = !cy[closestIdx].isSelected;
+            ObjectInstance* hit = getObjectMutable(static_cast<int>(closestType), closestIdx);
+            if (hit != nullptr) hit->isSelected = additiveSelection ? !hit->isSelected : true;
+            selectedType = closestType;
+        }
+        else if (!additiveSelection)
+        {
+            selectedType = NONE;
         }
 
         
@@ -824,6 +825,9 @@ void deleteobj() {
             i--;
         }
     }
+
+    totalSelectedCount = 0;
+    selectedType = NONE;
 }
 
 // ideally gonna use no models and just mesh

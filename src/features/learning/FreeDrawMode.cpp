@@ -7,11 +7,16 @@ namespace
     {
         // GuiGetFont() follows GuiLoadStyle*(), so custom editor labels use the
         // same typeface as buttons, fields, and dropdowns in every theme.
-        const float readableSize = static_cast<float>(std::max(fontSize, 14));
-        const float spacing = std::max(1.0f, readableSize / 12.0f);
+        const float readableSize = static_cast<float>(fontSize);
+        const float spacing = static_cast<float>(std::max(0, GuiGetStyle(DEFAULT, TEXT_SPACING)));
         DrawTextEx(GuiGetFont(), text,
                    { static_cast<float>(x), static_cast<float>(y) },
                    readableSize, spacing, color);
+    }
+
+    static float GetEditorControlHeight()
+    {
+        return static_cast<float>(std::max(27, GuiGetStyle(DEFAULT, TEXT_SIZE) + 11));
     }
 
     enum PropertyFloatField
@@ -53,6 +58,18 @@ namespace
     };
 
     static bool propertyMaterialDropdownOpen = false;
+    static bool viewportClickCandidate = false;
+    static Vector2 viewportClickStart = { 0.0f, 0.0f };
+
+    static bool IsPropertyEditorActive()
+    {
+        if (propertyMaterialDropdownOpen) return true;
+        for (const FloatFieldState& field : propertyFloatFields)
+            if (field.editMode) return true;
+        for (bool editMode : propertyColorEditMode)
+            if (editMode) return true;
+        return false;
+    }
 
     static int propertyBoundType = -1;
     static int propertyBoundIndex = -1;
@@ -258,7 +275,7 @@ namespace
 
         constexpr float gap = 6.0f;
         constexpr float labelWidth = 14.0f;
-        constexpr float fieldHeight = 24.0f;
+        const float fieldHeight = GetEditorControlHeight();
 
         const float groupWidth =
             (width - gap * 2.0f) / 3.0f;
@@ -365,7 +382,7 @@ namespace
                 x + i * (fieldWidth + gap),
                 y,
                 fieldWidth,
-                24.0f
+                GetEditorControlHeight()
             };
 
             bool wasEditing =
@@ -417,7 +434,7 @@ namespace
         color.a =
             static_cast<unsigned char>(channels[3]);
 
-        y += 34.0f;
+        y += GetEditorControlHeight() + 10.0f;
     }
 
     static int MaterialToPropertyIndex(
@@ -522,12 +539,13 @@ namespace
         }
     }
 
-    constexpr float EDITOR_PANEL_WIDTH = 340.0f;
-
     static Rectangle GetEditorDockBounds()
     {
-        return { static_cast<float>(GetScreenWidth()) - EDITOR_PANEL_WIDTH,
-                 52.0f, EDITOR_PANEL_WIDTH,
+        // Keep vector values readable without consuming too much viewport at
+        // lower resolutions.
+        const float width = ClampPropertyValue(GetScreenWidth() * 0.30f, 370.0f, 430.0f);
+        return { static_cast<float>(GetScreenWidth()) - width,
+                 52.0f, width,
                  static_cast<float>(GetScreenHeight()) - 52.0f };
     }
 
@@ -543,8 +561,9 @@ namespace
         const Color text = GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL));
         DrawRectangleRec(bounds, Fade(background, 0.97f));
         DrawRectangleLinesEx(bounds, 1.0f, border);
+        const Color header = GetColor(GuiGetStyle(DEFAULT, BASE_COLOR_NORMAL));
         DrawRectangle(static_cast<int>(bounds.x), static_cast<int>(bounds.y),
-                      static_cast<int>(bounds.width), 30, Fade(border, 0.35f));
+                      static_cast<int>(bounds.width), 32, header);
         DrawEditorText(title, static_cast<int>(bounds.x + 10.0f),
                  static_cast<int>(bounds.y + 7.0f), 16, text);
     }
@@ -556,10 +575,11 @@ namespace
         DrawPanelFrame(panel, "Workspace");
 
         const Color text = GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL));
-        float y = panel.y + 37.0f;
+        const float rowHeight = static_cast<float>(std::max(26, GuiGetStyle(DEFAULT, TEXT_SIZE) + 12));
+        float y = panel.y + 39.0f;
         DrawEditorText("v", static_cast<int>(panel.x + 10), static_cast<int>(y + 4), 13, text);
         DrawEditorText("Workspace", static_cast<int>(panel.x + 28), static_cast<int>(y + 4), 14, text);
-        y += 27.0f;
+        y += rowHeight;
 
         int visibleCount = 0;
         for (int type = 1; type <= 3; ++type)
@@ -568,21 +588,25 @@ namespace
             {
                 ObjectInstance* object = getObjectMutable(type, index);
                 if (object == nullptr) continue;
-                Rectangle row = { panel.x + 20.0f, y, panel.width - 30.0f, 24.0f };
+                Rectangle row = { panel.x + 20.0f, y, panel.width - 30.0f, rowHeight };
                 const char* className = GetObjectPropertyTypeName(type, *object);
                 const char* label = TextFormat("%s  %s %d", object->isLight ? "*" : "#", className, index + 1);
-                if (object->isSelected)
-                    DrawRectangleRec(row, Fade(GetColor(GuiGetStyle(DEFAULT, BASE_COLOR_FOCUSED)), 0.75f));
-                if (GuiButton(row, label))
+                const bool wasSelected = object->isSelected;
+                bool rowSelected = wasSelected;
+                const int previousAlignment = GuiGetStyle(TOGGLE, TEXT_ALIGNMENT);
+                GuiSetStyle(TOGGLE, TEXT_ALIGNMENT, TEXT_ALIGN_LEFT);
+                GuiToggle(row, label, &rowSelected);
+                GuiSetStyle(TOGGLE, TEXT_ALIGNMENT, previousAlignment);
+                if (rowSelected != wasSelected)
                 {
                     const bool additive = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
                     selectObject(type, index, additive);
                 }
-                y += 25.0f;
+                y += rowHeight + 1.0f;
                 ++visibleCount;
-                if (y + 25.0f > panel.y + panel.height) break;
+                if (y + rowHeight > panel.y + panel.height) break;
             }
-            if (y + 25.0f > panel.y + panel.height) break;
+            if (y + rowHeight > panel.y + panel.height) break;
         }
 
         if (visibleCount == 0)
@@ -610,20 +634,29 @@ void freeDrawInit() {
 void freeDrawUpdate() {
 
 	if (!freeDrawState.initiliased) return; // Prevent update if not initialized
-    if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && freeDrawState.check == 0) {
-        DisableCursor();
-        freeDrawState.check = 1;
-    }
-    else if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && freeDrawState.check == 1) {
-        ShowCursor();
-        freeDrawState.check = 0;
-    }
     bool usingGizmo = updateObjectTransformGizmo(freeDrawState.camera);
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !usingGizmo && !IsPointerOverEditorUi()) {
-        // GetMouseRay identifier not found, so replaced with GetScreenToWorldRay, which does the same thing but takes screen coordinates and camera as input
-		Ray ray = GetScreenToWorldRay(GetMousePosition(), freeDrawState.camera);
-        //Ray ray = GetMouseRay(GetMousePosition(), freeDrawState.camera);
-        leftclick(ray);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        viewportClickStart = GetMousePosition();
+        viewportClickCandidate = !usingGizmo && !IsPointerOverEditorUi() &&
+                                 !freeDrawState.mouseButtonPressed;
+    }
+
+    if (viewportClickCandidate && IsMouseButtonDown(MOUSE_BUTTON_LEFT) &&
+        Vector2Distance(viewportClickStart, GetMousePosition()) > 4.0f)
+    {
+        viewportClickCandidate = false;
+    }
+
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+    {
+        if (viewportClickCandidate && !IsPointerOverEditorUi() &&
+            !freeDrawState.mouseButtonPressed)
+        {
+            Ray ray = GetScreenToWorldRay(GetMousePosition(), freeDrawState.camera);
+            leftclick(ray);
+        }
+        viewportClickCandidate = false;
     }
 
     // Allow zoom with mouse wheel when camera is locked (preset view)
@@ -639,6 +672,14 @@ void freeDrawUpdate() {
     if (IsKeyPressed(KEY_F1))
     {
         freeDrawState.helpTip = !freeDrawState.helpTip;
+    }
+
+    if (IsKeyPressed(KEY_BACKSPACE) && !IsPropertyEditorActive())
+    {
+        deleteobj();
+        propertyBoundType = -1;
+        propertyBoundIndex = -1;
+        ResetPropertyEditorState();
     }
 
 
@@ -666,7 +707,8 @@ void freeDrawDraw() {
     if (GuiButton(btnOptionsIcon, "")) {
         sceneManagerChangeScene(sceneId::SCENE_OPTIONS);
     }
-    GuiDrawIcon(ICON_GEAR_BIG, btnOptionsIcon.x, btnOptionsIcon.y, 2, BLACK);
+    GuiDrawIcon(ICON_GEAR_BIG, btnOptionsIcon.x, btnOptionsIcon.y, 2,
+                GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
     //topBar(currentResIndex, freeDrawState.dropdownEditmode);
 
@@ -880,7 +922,8 @@ void getProperties()
                        GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
         int materialIndex = MaterialToPropertyIndex(selected->material);
-        Rectangle materialBounds = { contentX + 75.0f, y, contentWidth - 75.0f, 25.0f };
+        const float controlHeight = GetEditorControlHeight();
+        Rectangle materialBounds = { contentX + 82.0f, y, contentWidth - 82.0f, controlHeight };
         if (GuiDropdownBox(materialBounds,
                            "Concrete;Wood;Plastic;Cobblestone;Brick;Tiles;Metal;Marble;Asphalt",
                            &materialIndex, propertyMaterialDropdownOpen))
@@ -888,7 +931,7 @@ void getProperties()
             propertyMaterialDropdownOpen = !propertyMaterialDropdownOpen;
         }
         selected->material = PropertyIndexToMaterial(materialIndex);
-        y += 35.0f;
+        y += controlHeight + 10.0f;
 
         // Keep the open list above the remaining property controls and prevent
         // clicks on its choices from also editing a field underneath it.
@@ -971,7 +1014,7 @@ void getProperties()
                 contentX + 80.0f,
                 y,
                 contentWidth - 80.0f,
-                24.0f
+                GetEditorControlHeight()
             },
             PROPERTY_LIGHT_INTENSITY,
             selected->lightIntensity,
@@ -979,7 +1022,7 @@ void getProperties()
             100000.0f
         );
 
-        y += 32.0f;
+        y += GetEditorControlHeight() + 8.0f;
 
         DrawEditorText(
             "Radius",
@@ -1000,7 +1043,7 @@ void getProperties()
                 contentX + 80.0f,
                 y,
                 contentWidth - 80.0f,
-                24.0f
+                GetEditorControlHeight()
             },
             PROPERTY_LIGHT_RADIUS,
             selected->lightRadius,
@@ -1008,7 +1051,7 @@ void getProperties()
             100000.0f
         );
 
-        y += 34.0f;
+        y += GetEditorControlHeight() + 10.0f;
 
         // Immediately update the PBR light after editing
         // position, color, intensity, or radius.
@@ -1018,9 +1061,9 @@ void getProperties()
     Rectangle deselectButton =
     {
         contentX,
-        panelY + panelHeight - 35.0f,
-        100.0f,
-        25.0f
+        panelY + panelHeight - GetEditorControlHeight() - 10.0f,
+        110.0f,
+        GetEditorControlHeight()
     };
 
     if (GuiButton(deselectButton, "Deselect"))

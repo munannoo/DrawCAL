@@ -4,6 +4,8 @@
 #include <objects/object.h>
 #include <cstring>
 #include <raylib.h>
+#include "ui/themes/themes.h"
+#include <algorithm>
 
 static Vector2 clickPos = { 0.0f, 0.0f };
 static Vector3 objPosn = { 0.0f, 0.0f, 0.0f };
@@ -84,6 +86,18 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
 
     const int rootMenuSize = sizeof(rootMenu) / sizeof(rootMenu[0]);
 
+    float rootTextWidth = 0.0f;
+    for (const char* item : rootMenu)
+        rootTextWidth = std::max(rootTextWidth, MeasureThemeText(item,
+            static_cast<float>(GuiGetStyle(DEFAULT, TEXT_SIZE))).x);
+
+    menuRec.width = std::max(165.0f, rootTextWidth + 36.0f);
+    menuRec.height = static_cast<float>(itemHeight * rootMenuSize + 10);
+    menuRec.x = std::clamp(menuRec.x, 4.0f,
+                           std::max(4.0f, GetScreenWidth() - menuRec.width - 4.0f));
+    menuRec.y = std::clamp(menuRec.y, 4.0f,
+                           std::max(4.0f, GetScreenHeight() - menuRec.height - 4.0f));
+
     if (state == STATE_SHOW_MENU || state == STATE_SHOW_SUBMENU)
     {
         menuRec.height = itemHeight * rootMenuSize + 10;
@@ -126,12 +140,23 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
 
     if (state == STATE_SHOW_SUBMENU && submenuText != NULL)
     {
+        float submenuTextWidth = 0.0f;
+        for (int i = 0; i < subMenuSize; ++i)
+            submenuTextWidth = std::max(submenuTextWidth, MeasureThemeText(submenuText[i],
+                static_cast<float>(GuiGetStyle(DEFAULT, TEXT_SIZE))).x);
+        const float submenuWidth = std::max(165.0f, submenuTextWidth + 36.0f);
+        float submenuX = menuRec.x + menuRec.width + 2.0f;
+        if (submenuX + submenuWidth > GetScreenWidth() - 4.0f)
+            submenuX = menuRec.x - submenuWidth - 2.0f;
+
         Rectangle bounds = {
-            menuRec.x + menuRec.width + 2,
+            submenuX,
             menuRec.y + (float)mainFocused * itemHeight,
-            130,
+            submenuWidth,
             (float)subMenuSize * itemHeight + 10
         };
+        bounds.y = std::clamp(bounds.y, 4.0f,
+                              std::max(4.0f, GetScreenHeight() - bounds.height - 4.0f));
 
         int focused = -1;
         subActive = GuiListViewEx(bounds, submenuText, subMenuSize, NULL, &subActive, &focused);

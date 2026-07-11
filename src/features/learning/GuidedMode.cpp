@@ -2,6 +2,7 @@
 #include "raygui.h"
 #include "features/learning/GuidedMode.h"
 #include "ui/scenes/sceneManager.h"
+#include "ui/themes/themes.h"
 
 static Rectangle cubeBtn;
 static Rectangle sphereBtn;
@@ -21,17 +22,15 @@ void DrawRoundedButton(Rectangle bounds, Color color, const char* text)
     DrawRectangleRounded(bounds, 0.20f, 8, drawColor);
 
     // Optional border
-    DrawRectangleRoundedLines(bounds, 0.20f, 8, BLACK);
+    DrawRectangleRoundedLines(bounds, 0.20f, 8,
+        GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL)));
 
     int fontSize = 22;
 
-    DrawText(
-        text,
-        bounds.x + (bounds.width - MeasureText(text, fontSize)) / 2,
-        bounds.y + bounds.height - 38,
-        fontSize,
-        WHITE
-    );
+    Vector2 textSize = MeasureThemeText(text, (float)fontSize);
+    DrawThemeText(text, bounds.x + (bounds.width - textSize.x) / 2.0f,
+                  bounds.y + bounds.height - 38.0f, (float)fontSize,
+                  GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 }
 
 void GuidedModeInit()
@@ -106,18 +105,14 @@ void GuidedModeUpdate()
 
 void GuidedModeDraw()
 {
-   ClearBackground(RAYWHITE);
-   DrawRoundedButton(backBtn, GRAY, "< Back");
+   ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+   if (GuiButton(backBtn, "< Back")) pendingLearnScene = learnSceneId::LEARN_MENU;
 
     const char* title = "Guided Mode";
 
-    DrawText(
-        title,
-        (GetScreenWidth() - MeasureText(title, 40)) / 2,
-        80,
-        40,
-        DARKGRAY
-    );
+    Vector2 titleSize = MeasureThemeText(title, 40.0f);
+    DrawThemeText(title, (GetScreenWidth() - titleSize.x) / 2.0f, 80.0f, 40.0f,
+                  GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
     DrawRoundedButton(cubeBtn, Color{52, 152, 219, 255}, "Cube");
     DrawRoundedButton(sphereBtn, Color{46, 204, 113, 255}, "Sphere");
