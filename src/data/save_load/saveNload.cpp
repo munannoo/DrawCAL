@@ -27,6 +27,12 @@ static const char* MaterialTypeToString(MaterialType material)
         case MATERIAL_CONCRETE: return "concrete";
         case MATERIAL_WOOD: return "wood";
         case MATERIAL_PLASTIC: return "plastic";
+        case MATERIAL_COBBLESTONE: return "cobblestone";
+        case MATERIAL_BRICK: return "brick";
+        case MATERIAL_TILES: return "tiles";
+        case MATERIAL_METAL: return "metal";
+        case MATERIAL_MARBLE: return "marble";
+        case MATERIAL_ASPHALT: return "asphalt";
         default: return "concrete";
     }
 }
@@ -35,6 +41,12 @@ static MaterialType StringToMaterialType(const std::string& material)
 {
     if (material == "wood") return MATERIAL_WOOD;
     if (material == "plastic") return MATERIAL_PLASTIC;
+    if (material == "cobblestone") return MATERIAL_COBBLESTONE;
+    if (material == "brick") return MATERIAL_BRICK;
+    if (material == "tiles") return MATERIAL_TILES;
+    if (material == "metal") return MATERIAL_METAL;
+    if (material == "marble") return MATERIAL_MARBLE;
+    if (material == "asphalt") return MATERIAL_ASPHALT;
     return MATERIAL_CONCRETE;
 }
 
@@ -51,6 +63,8 @@ static void addObject(json& sceneData, const char* type, ObjectInstance& obj) {
 
     objectData["isSelected"] = false;
     objectData["isLight"] = obj.isLight;
+    objectData["lightIntensity"] = obj.lightIntensity;
+    objectData["lightRadius"] = obj.lightRadius;
 
     sceneData["objects"].push_back(objectData);
 }
@@ -70,7 +84,7 @@ void saveScene(
     }
 
     json sceneData;
-    sceneData["version"] = 1;
+    sceneData["version"] = 2;
     sceneData["objects"] = json::array();
 
     for (int i = 0; i < c; i++) {
@@ -109,7 +123,10 @@ static Color jsonToColor(const json& data) {
 }
 
 static void loadObject(ObjectInstance& obj, const json& objectData) {
-    obj.color = jsonToColor(objectData["color"]);
+    obj.color = objectData.contains("color")
+        ? jsonToColor(objectData["color"])
+        : Color{ 255, 255, 255, 255 };
+    obj.material = StringToMaterialType(objectData.value("material", "concrete"));
 
     if (objectData.contains("position")) {
         obj.position = jsonToVector3(objectData["position"]);
@@ -118,11 +135,17 @@ static void loadObject(ObjectInstance& obj, const json& objectData) {
         obj.position = jsonToVector3(objectData["coordinates"]);
     }
 
-    obj.rotation = jsonToVector3(objectData["rotation"]);
-    obj.scale = jsonToVector3(objectData["scale"]);
+    obj.rotation = objectData.contains("rotation")
+        ? jsonToVector3(objectData["rotation"])
+        : Vector3{ 0.0f, 0.0f, 0.0f };
+    obj.scale = objectData.contains("scale")
+        ? jsonToVector3(objectData["scale"])
+        : Vector3{ 1.0f, 1.0f, 1.0f };
 
     obj.isSelected = false;
     obj.isLight = objectData.value("isLight", false);
+    obj.lightIntensity = objectData.value("lightIntensity", 350.0f);
+    obj.lightRadius = objectData.value("lightRadius", 35.0f);
     obj.lightIndex = -1;
 }
 
@@ -155,7 +178,13 @@ bool loadScene(
     }
 
     json sceneData;
-    sceneFile >> sceneData;
+    try {
+        sceneFile >> sceneData;
+    }
+    catch (const json::exception& error) {
+        std::cout << "Could not load scene.drawcal: " << error.what() << '\n';
+        return false;
+    }
 
     c = 0;
     s = 0;
@@ -165,6 +194,8 @@ bool loadScene(
         std::cout << "Invalid scene file.\n";
         return false;
     }
+
+    ClearSceneLights();
 
     for (const auto& objectData : sceneData["objects"]) {
         std::string type = objectData.value("type", "");
@@ -181,6 +212,8 @@ bool loadScene(
 
                 if (lightIndex != -1) {
                     Sp[s].lightIndex = lightIndex;
+                    SetSceneLightProperties(lightIndex, Sp[s].color,
+                                            Sp[s].lightIntensity, Sp[s].lightRadius);
                 }
                 else {
                     Sp[s].isLight = false;

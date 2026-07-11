@@ -11,6 +11,11 @@
 #include "features/manipulation/Transform.h"
 #include "features/learning/FreeDrawMode.h"
 #include "ui/scenes/sceneManager.h"
+#include "raygui.h"
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
 
 enum viewIndex { VIEW_NONE = -1, VIEW_FREE = 0, VIEW_FRONT, VIEW_TOP, VIEW_LEFT, VIEW_RIGHT };
 // selected view (0=Front,1=Top,2=Left,3=Right)

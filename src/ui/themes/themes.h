@@ -19,6 +19,9 @@ void GuiLoadStyleGenesis(void);
 void GuiLoadStyleJungle(void);
 void GuiLoadStyleAmber(void);
 
+void DrawThemeText(const char* text, float x, float y, float fontSize, Color color);
+Vector2 MeasureThemeText(const char* text, float fontSize);
+
 
 
 #endif

@@ -20,3 +20,17 @@
 //#include "jungle.rgs.h"
 
 const char* themeOptions = "Default;Dark;Cyber;Genesis;Jungle;amber";
+
+Vector2 MeasureThemeText(const char* text, float fontSize)
+{
+    const Font font = GuiGetFont();
+    const float spacing = (float)GuiGetStyle(DEFAULT, TEXT_SPACING);
+    return MeasureTextEx(font, text, fontSize, spacing);
+}
+
+void DrawThemeText(const char* text, float x, float y, float fontSize, Color color)
+{
+    const Font font = GuiGetFont();
+    const float spacing = (float)GuiGetStyle(DEFAULT, TEXT_SPACING);
+    DrawTextEx(font, text, { x, y }, fontSize, spacing, color);
+}

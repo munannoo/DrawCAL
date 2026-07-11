@@ -1,4 +1,5 @@
 #include "mainMenuOptions.h"
+#include "UiStyle.h"
 
 std::string textResolution = "Resolution: ";
 
@@ -25,7 +26,9 @@ void optionsMenuUpdate() {
 }
 
 void optionsMenuDraw() {
-	DrawText("Options", btnLeft, btnTop - 1 * btnGap, 20, BLACK);
+	UiStyle::LoadMinimalStyle();
+	UiStyle::DrawBackground();
+	UiStyle::DrawSceneHeader("Options", "Settings and preferences.", btnTop - 68.0f, btnTop - 28.0f);
 
 	if (GuiButton(btnGraphics, "Display")) sceneManagerChangeScene(optionSceneId::OPTIONS_GRAPHICS);
 	if (GuiButton(btnControls, "Controls")) sceneManagerChangeScene(optionSceneId::OPTIONS_CONTROLS);
@@ -57,7 +60,9 @@ void optionsGraphicsInit() {
 
 void optionsGraphicsDraw() {
 
-	DrawText("Display Settings", btnLeft, btnTop - 1 * btnGap, 20, BLACK);
+	UiStyle::LoadMinimalStyle();
+	UiStyle::DrawBackground();
+	UiStyle::DrawSceneHeader("Display Settings", "Graphics and window mode.", btnTop - 68.0f, btnTop - 28.0f);
 
 	if (GuiButton(btnResolution, textResolution.c_str())) dropdownEditMode = true;
 
@@ -119,6 +124,10 @@ void optionsControlsInit(){
 }
 void optionsControlsUpdate(){}
 void optionsControlsDraw(){
+	UiStyle::LoadMinimalStyle();
+	UiStyle::DrawBackground();
+	UiStyle::DrawSceneHeader("Controls", "Camera and input help.", btnTop - 68.0f, 50.0f);
+
 	drawCameraControllerSettings();
 	if (GuiButton(btnBack, "Back")) {
 		pendingOptionScene = optionSceneId::OPTIONS_MENU;
@@ -140,7 +149,9 @@ void optionsInterfaceUpdate() {
 }
 
 void optionsInterfaceDraw() {
-	DrawText("Interface Settings", btnLeft, btnTop - 1 * btnGap, 20, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+	UiStyle::LoadMinimalStyle();
+	UiStyle::DrawBackground();
+	UiStyle::DrawSceneHeader("Interface Settings", "Customize your UI.", btnTop - 68.0f, btnTop - 28.0f);
 
 	if (GuiButton(btnUIScale, "UI SCALE: ")) {
 		// TODO: UI scale settings
@@ -167,16 +178,16 @@ void optionsInterfaceUnload(){}
 
 void changeTheme() {
 	if (currentThemeIndex != lastThemeIndex) {
-		switch (currentThemeIndex) {
+			switch (currentThemeIndex) {
 			case 0:	GuiLoadStyleDefault();  break;
 			case 1: GuiLoadStyleDark(); TraceLog(LOG_INFO, "MyButton clicked"); break;
 			case 2: GuiLoadStyleCyber(); break;
 			case 3: GuiLoadStyleGenesis(); break;
 			case 4: GuiLoadStyleJungle(); break;
 			case 5: GuiLoadStyleAmber(); break;
-			default: break;
-		}
-		lastThemeIndex = currentThemeIndex;
+				default: break;
+			}
+			lastThemeIndex = currentThemeIndex;
 		changeButtonResolution();
 		optionsInterfaceInit();
 	}
