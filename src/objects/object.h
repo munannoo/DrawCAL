@@ -25,7 +25,7 @@ void renderCylinder();
 
 // Unload the models, required because the objects are defined static, and 
 void unloadModels();
-
+void clear();
 void leftclick(Ray ray);
 bool updateObjectTransformGizmo(Camera3D camera);
 // obsolete ig, but idk

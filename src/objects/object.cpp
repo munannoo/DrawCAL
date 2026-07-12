@@ -337,6 +337,25 @@ void deselectAllObjects()
     totalSelectedCount = 0;
     selectedType = NONE;
 }
+void clear()
+{
+    for (int i = 0; i < c; i++)
+    {
+        Cu[i].isSelected = true;
+    }
+
+    for (int i = 0; i < s; i++)
+    {
+        Sp[i].isSelected = true;
+    }
+
+    for (int i = 0; i < y; i++)
+    {
+        cy[i].isSelected = true;
+    }
+    deleteobj();
+}
+
 
 int getTotalSelectedCount() {
     int total = 0;

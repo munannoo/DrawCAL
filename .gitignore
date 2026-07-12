@@ -13,3 +13,5 @@ Thumbs.db
 out/
 *.pdb
 *.drawcal
+release/
+*.iss

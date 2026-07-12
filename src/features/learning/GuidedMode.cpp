@@ -18,9 +18,9 @@ static void OpenWorkspaceWithObject(int objectType)
 
     switch (objectType)
     {
-        case 1: cube(spawnPosition); break;
-        case 2: sphere(spawnPosition); break;
-        case 3: cylinder(spawnPosition); break;
+        case 1: clear(); cube(spawnPosition); lightSphere({6,20,10}, WHITE); break;
+        case 2: clear(); sphere(spawnPosition); lightSphere({6,20,10}, WHITE); break;
+        case 3: clear(); cylinder(spawnPosition); lightSphere({6,20,10}, WHITE); break;
         default: return;
     }
 
