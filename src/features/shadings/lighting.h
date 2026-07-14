@@ -4,7 +4,7 @@
 #include <r3d.h>
 #include <vector>
 #include <memory>
-
+#include "raygui.h"
 
 class Light
 {
@@ -28,6 +28,8 @@ public:
 };
 
 extern std::vector<std::unique_ptr<Light>> lights;
+
+void initialiseEnvironment();
 
 #endif
 

@@ -52,7 +52,43 @@ void Light::setSelected(bool value)
     selected = value;
 }
 
+void initialiseEnvironment() {
 
+    // Set ambient light
+    //R3D_ENVIRONMENT_SET(ambient.color, Color{ 10, 10, 10, 255 });
+
+    R3D_Environment* env = R3D_GetEnvironment();
+
+    // Core workspace rendering
+    //env->background.color = GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR));
+    //env->background.energy = 1.0f;
+    env->background.color = Color{ 45, 48, 52, 255 };
+
+    env->ambient.color = Color{ 20, 20, 20, 255 };
+    env->ambient.energy = 0.3f;
+
+    // Ambient Occlusion
+    env->ssao.enabled = true;
+    env->ssao.intensity = 0.7f;
+    env->ssao.radius = 0.5f;
+    env->ssao.bias = 0.03f;
+
+    // Indirect lighting
+    env->ssil.enabled = true;
+
+    // Global Illumination, simulates light bounces
+	env->ssgi.enabled = false;
+
+	// Screen space reflections
+	env->ssr.enabled = false;
+
+    //// Geometry readability
+    //R3D_EnvSSAO
+    //// HDR display
+
+
+    R3D_SetEnvironment(env);
+}
 
 //
 //struct ShaderLightLocations

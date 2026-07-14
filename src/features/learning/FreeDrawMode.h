@@ -11,6 +11,7 @@
 #include "features/manipulation/Transform.h"
 #include "features/learning/FreeDrawMode.h"
 #include "ui/scenes/sceneManager.h"
+#include "features/shadings/lighting.h"
 #include "raygui.h"
 #include <algorithm>
 #include <cmath>

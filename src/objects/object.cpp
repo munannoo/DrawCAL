@@ -9,6 +9,8 @@ std::vector<shape*> selectedObjects;
 extern shape* activeObject;
 // Class shape method definitions
 
+static void updateSelectedObjects();
+
 shape::shape()
 	: transform{ { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f, 1.0f } },
 	meshData{},
@@ -966,31 +968,12 @@ void leftclick(Ray ray)
 		if (additiveSelection)
 		{
 			// Ctrl + click selected object -> deselect it
-			if (closestObject->getSelected())
-			{
-				closestObject->setSelected(false);
-
-				selectedObjects.erase(
-					std::remove(
-						selectedObjects.begin(),
-						selectedObjects.end(),
-						closestObject
-					),
-					selectedObjects.end()
-				);
-			}
-			// Ctrl + click unselected object -> add it
-			else
-			{
-				closestObject->setSelected(true);
-				selectedObjects.push_back(closestObject);
-			}
+			if (closestObject->getSelected()) closestObject->setSelected(!closestObject->getSelected());
 		}
 		else
 		{
 			// Normal click -> this becomes the only selection
 			closestObject->setSelected(true);
-			selectedObjects.push_back(closestObject);
 		}
 
 		TraceLog(
@@ -1000,11 +983,22 @@ void leftclick(Ray ray)
 		);
 	}
 
-
+	updateSelectedObjects();
 	totalSelectedCount = static_cast<int>(selectedObjects.size());
 }
 
+static void updateSelectedObjects()
+{
+	selectedObjects.clear();
 
+	for (const auto& object : objects)
+	{
+		if (object && object->getSelected())
+		{
+			selectedObjects.push_back(object.get());
+		}
+	}
+} 
 static Matrix GetObjectTransform(ObjectInstance obj)
 {
 	Matrix matScale = MatrixScale(

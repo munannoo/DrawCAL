@@ -618,6 +618,8 @@ namespace
 void freeDrawInit() {
 	TraceLog(LOG_INFO, "Initializing Free Draw Mode Scene");
     TraceLog(LOG_INFO, "%d", static_cast<int>(currentScene));
+    initialiseEnvironment();
+
 	if (freeDrawState.initiliased) return; // Prevent reinitialization if already initialized
     InitTransformGizmo(); // Initialize the transform gizmo, only needs to be called once
 	InitCamera(freeDrawState.camera);

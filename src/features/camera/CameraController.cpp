@@ -10,7 +10,9 @@ void InitCamera(Camera3D &camera)
     camera.position = { 10.0f, 10.0f, 10.0f };
     camera.target   = { 0.0f, 0.0f, 0.0f };
     camera.up       = { 0.0f, 1.0f, 0.0f };
-    camera.fovy     = 90.0f;
+
+    // fov is 40f for perspective, keeping similar to blender
+    camera.fovy     = 40.0f; // tried updating to blender value...
     camera.projection = CAMERA_PERSPECTIVE;
     
 }
