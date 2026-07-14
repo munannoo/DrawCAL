@@ -584,9 +584,9 @@ namespace
         int visibleCount = 0;
         for (int type = 1; type <= 3; ++type)
         {
-            for (int index = 0; index < getObjectCount(type); ++index)
+            for (int index = 0; index < getObjectCount(static_cast<ObjectType>(type)); ++index)
             {
-                ObjectInstance* object = getObjectMutable(type, index);
+                ObjectInstance* object = getObjectMutable(static_cast<ObjectType>(type), index);
                 if (object == nullptr) continue;
                 Rectangle row = { panel.x + 20.0f, y, panel.width - 30.0f, rowHeight };
                 const char* className = GetObjectPropertyTypeName(type, *object);
@@ -600,7 +600,7 @@ namespace
                 if (rowSelected != wasSelected)
                 {
                     const bool additive = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
-                    selectObject(type, index, additive);
+                    selectObject(static_cast<ObjectType>(type), index, additive);
                 }
                 y += rowHeight + 1.0f;
                 ++visibleCount;
@@ -699,6 +699,7 @@ void freeDrawUpdate() {
 }
 
 void freeDrawDraw() {
+
     DrawCameraScene(freeDrawState.camera);
     // Top-right options (gear) button to open Options menu
     const float iconSize = 32.0f;
@@ -1055,7 +1056,7 @@ void getProperties()
 
         // Immediately update the PBR light after editing
         // position, color, intensity, or radius.
-        SyncObjectLightsToScene();
+        //SyncObjectLightsToScene();
     }
 
     Rectangle deselectButton =

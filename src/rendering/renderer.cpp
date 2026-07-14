@@ -3,6 +3,8 @@
 #include "rlgl.h"
 #include "objects/object.h"
 #include "features/shadings/lighting.h"
+#include <r3d.h>
+
 Shader gridShader;
 Model gridPlane;
 
@@ -10,6 +12,8 @@ int camPosLoc;
 int gridColorLoc;
 int farGridColorLoc;
 int scaleLoc;
+
+// Grid Shader initialised for infinite grid rendering
 void initgridShader() 
 {
     TraceLog(LOG_INFO, "grid.vs exists: %s", FileExists("shaders/grid.vs") ? "YES" : "NO");
@@ -24,14 +28,13 @@ void initgridShader()
     gridColorLoc = GetShaderLocation(gridShader, "gridColor");
     farGridColorLoc = GetShaderLocation(gridShader, "farGridColor");
     scaleLoc = GetShaderLocation(gridShader, "scale");
-    
 }
 
 Vector4 gridCol = { 0.5f, 0.5f, 0.5f, 0.8f };
 Vector4 farGridCol = { 0.2f, 0.2f, 0.2f, 0.2f };
 float scale = 1.0f;
-void DrawCameraScene(const Camera3D &camera)
-{
+
+void drawGrid(const Camera3D &camera) {
     Vector3 camPos = camera.position;
 
     SetShaderValue(gridShader, camPosLoc, &camPos, SHADER_UNIFORM_VEC3);
@@ -39,24 +42,43 @@ void DrawCameraScene(const Camera3D &camera)
     SetShaderValue(gridShader, farGridColorLoc, &farGridCol, SHADER_UNIFORM_VEC4);
     SetShaderValue(gridShader, scaleLoc, &scale, SHADER_UNIFORM_FLOAT);
 
-    Vector3 cubePosition = { 0.0f, 0.0f, 0.0f };
-
     BeginMode3D(camera);
 
-        rlDisableBackfaceCulling();
+    rlDisableBackfaceCulling();
 
-        BeginBlendMode(BLEND_ALPHA);
-            DrawModel(gridPlane, { camera.position.x, 0.0f, camera.position.z }, 1.0f, WHITE);
-        EndBlendMode();
-        
-        rlEnableBackfaceCulling();
-        SyncObjectLightsToScene();
-        UpdateLighting(camera);
-        renderCube();
-        renderSphere();
-        renderCylinder();
-        DrawSceneLights();
-        drawObjectTransformGizmo(camera);
+    BeginBlendMode(BLEND_ALPHA);
+    DrawModel(gridPlane, { camera.position.x, 0.0f, camera.position.z }, 1.0f, WHITE);
+    EndBlendMode();
+
+    rlEnableBackfaceCulling();
+
+
+}
+
+void DrawCameraScene(const Camera3D &camera)
+{
+
+        //SyncObjectLightsToScene();
+        //UpdateLighting(camera);
+
+		R3D_Begin(camera);
+            renderAllObjects();
+            //renderSphere();
+            //renderCylinder();
+        R3D_End();
+
+
+        BeginMode3D(camera);
+		    // Light needs to be drawn in 3D mode, otherwise it will be drawn in 2D mode and will not be visible in the scene.
+		    renderLightObjects();
+            drawGrid(camera);
+
+            //DrawSceneLights();
+
+            drawObjectTransformGizmo(camera);
+
+        EndMode3D();
+
 
     EndMode3D();
 }

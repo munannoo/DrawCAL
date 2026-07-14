@@ -8,19 +8,20 @@
 #include "json.hpp"
 #include "features/shadings/lighting.h"
 
-void saveScene(
-    ObjectInstance Cu[], int c,
-    ObjectInstance Sp[], int s,
-    ObjectInstance cy[], int y
-);
+//void saveScene(
+//    ObjectInstance Cu[], int c,
+//    ObjectInstance Sp[], int s,
+//    ObjectInstance cy[], int y
+//);
+//
+//bool loadScene(
+//    ObjectInstance Cu[], int& c,
+//    ObjectInstance Sp[], int& s,
+//    ObjectInstance cy[], int& y
+//);
 
-bool loadScene(
-    ObjectInstance Cu[], int& c,
-    ObjectInstance Sp[], int& s,
-    ObjectInstance cy[], int& y
-);
-
-
+void saveScene();
+bool loadScene();
 
 // CONTRARY TO STANDARD METHODS, THE SAVE AND LOAD FUNCTIONS ARE ABSOLUTELY ABSENT HERE
 // TO FIND OUT THE SAVE AND LOAD FUNCTIONS, LEAD OVER TO OBJECTS.CPP WHERE IT IS DEFINED: save(), load()

@@ -11,12 +11,17 @@
 #include "data/save_load/saveNload.h"
 #include <iostream>
 #include <vector>
+#include <memory>
+#include <r3d.h>
+
+enum class ObjectType { NONE = -1, CUBE, SPHERE, CYLINDER, CUSTOM };
+
 
 void initModels();
 void DrawSceneForShadowMap();
 void UploadSceneToRayTracer();
-void SyncObjectLightsToScene();
-void cube(const Vector3 pos, Color color = GRAY);
+//void SyncObjectLightsToScene();
+//void cube(const Vector3 pos, Color color = GRAY);
 void sphere(const Vector3 pos, Color color = GRAY);
 void cylinder(const Vector3 pos, Color color = GRAY);
 void renderCube();
@@ -42,17 +47,198 @@ void deleteobj();
 // Returns the actual selected object stored in Cu, Sp, or cy.
 // Do not delete or store this pointer permanently.
 ObjectInstance* getFirstSelectedMutable(
-    int* outType = nullptr,
-    int* outIndex = nullptr
+	int* outType = nullptr,
+	int* outIndex = nullptr
 );
 
 // Scene hierarchy access used by editor-style UI (1=cube, 2=sphere, 3=cylinder).
-int getObjectCount(int objectType);
-ObjectInstance* getObjectMutable(int objectType, int objectIndex);
-bool selectObject(int objectType, int objectIndex, bool additive = false);
+int getObjectCount(ObjectType objectType);
+ObjectInstance* getObjectMutable(ObjectType objectType, int objectIndex);
+bool selectObject(ObjectType objectType, int objectIndex, bool additive = false);
 
 void deselectAllObjects();
 //load and save functions, defined in object.cpp but main logic is present in saveNload.cpp
 void load();
 void save();
+
+// The object has no colour by default, if you wish to set colour for the object, you can do so by changing the material albedo
+// Implement later:     material.albedo.color = newColor;
+
+void renderAllObjects();
+void renderLightObjects();
+
+class shape
+{
+protected:
+	// Object transform
+	Transform transform;
+
+	// CPU-side editable geometry
+	R3D_MeshData meshData;
+
+	// GPU-side renderable mesh
+	R3D_Mesh mesh;
+
+	ObjectType objectType = ObjectType::NONE;
+	// Mesh primitive type
+	R3D_PrimitiveType primitiveType = R3D_PRIMITIVE_TRIANGLES;
+
+	R3D_Material* material = NULL; // Initialized in constructor to point to a valid default material
+
+	MaterialType materialType = MATERIAL_NONE;
+
+
+	// Object state
+	bool isSelected = false;
+	bool meshDirty = false; // Mesh becomes dirty if mesh data is changed
+
+	unsigned int id;
+	inline static unsigned int nextId = 0;
+
+public:
+	// Constructor / Destructor
+	shape();
+	virtual ~shape();
+	BoundingBox getWorldBoundingBox() const;
+	// Transform
+	const Transform& getTransform() const {
+		return transform;
+	}
+	void setTransform(const Transform& newTransform) {
+		if (QuaternionEquals(newTransform.rotation,QuaternionIdentity()) && Vector3Equals(newTransform.scale,Vector3Zero()) && Vector3Equals(newTransform.translation, Vector3One()))
+		{
+			return;
+		}
+		transform = newTransform;
+	}
+
+	// Material
+	void applyMaterial(MaterialType);
+	MaterialType getMaterialType() const {
+		return materialType;
+	}
+	void setMaterialType(MaterialType newType) {
+		applyMaterial(newType);
+	}
+	R3D_Material* getMaterial()
+	{
+		return material;
+	}
+	// Object Type
+	ObjectType getObjectType() const {
+		return objectType;
+	}
+	void setObjectType(ObjectType newType) {
+		objectType = newType;
+	}
+
+	// Just makes use of MatrixCompose to get the Transform matrix from the transform struct
+	Matrix getMatrix() const {
+		return MatrixCompose(transform.translation, transform.rotation, transform.scale);
+	}
+
+	// Getters
+	const R3D_MeshData& getMeshData() const {
+		return meshData;
+	}
+	void setMeshData(const R3D_MeshData& newMeshData) {
+		if (!R3D_IsMeshDataValid(meshData)) {
+			return;
+			TRACELOG(LOG_WARNING, "Attempted to set invalid mesh data for object ID %u", id);
+		}
+		meshData = newMeshData;
+		loadMesh(); // load mesh does sync mesh
+	}
+
+	int getVertexCount() const {
+		return meshData.vertexCount;
+	}
+	int getIndexCount() const {
+		return meshData.indexCount;
+	}
+
+	void shape::drawSelectionWireframe(Color color) const;
+
+	unsigned int getId() const
+	{
+		return id;
+	}
+
+	// Selection
+	bool getSelected() const;
+	void setSelected(bool selected);
+
+	// Local-space vertex access
+	Vector3 getVertexLocalPosition(int index) const;
+	void setVertexLocalPosition(int index, Vector3 position);
+
+	// World-space vertex access
+	Vector3 getVertexWorldPosition(int index) const;
+	void setVertexWorldPosition(int index, Vector3 position);
+
+	// Apply object transform to mesh data
+	void applyTransform();
+
+	// Mesh processing
+	void regenerateNormals();
+	void regenerateTangents();
+
+	BoundingBox getBoundingBox() const;
+
+
+
+	// Dirty state
+	bool isMeshDirty() const;
+
+	virtual bool generateMeshData() = 0;
+	bool loadMesh();
+	// GPU synchronization
+	virtual bool syncMesh();
+
+	// Rendering
+	virtual void drawShape() = 0;
+};
+
+
+
+
+
+class cube : public shape
+{
+private:
+	float width;
+	float height;
+	float length;
+	int resX, resY, resZ;
+public:
+	static int cubeCount;
+
+	static int getTotalCount() {
+		return cubeCount;
+	}
+
+	cube(
+		Vector3 position = { 0.0f, 0.0f, 0.0f },
+		Quaternion rotation = QuaternionIdentity(),
+		Vector3 scale = { 1.0f, 1.0f, 1.0f },
+		float width = 1.0f,
+		float height = 1.0f,
+		float length = 1.0f,
+		int resX = 1, int resY = 1, int resZ = 1
+	);
+
+	bool generateMeshData() override;
+	void drawShape() override;
+
+	float getWidth() const { return width; }
+	float getHeight() const { return height; }
+	float getLength() const { return length; }
+
+};
+
+
+
+extern std::vector<std::unique_ptr<shape>> objects;
+extern std::vector<shape*> selectedObjects;
+extern shape* activeObject;
 #endif // object_h
