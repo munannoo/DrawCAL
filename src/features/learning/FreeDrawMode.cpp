@@ -3,11 +3,16 @@
 #include "raygui.h"
 
 static bool guidedWorkspace = false;
+static bool guidedDimensionsVisible = false;
 
 void SetGuidedWorkspace(bool guided)
 {
     guidedWorkspace = guided;
-    if (guided) freeDrawState.mouseButtonPressed = false;
+    if (guided)
+    {
+        freeDrawState.mouseButtonPressed = false;
+        guidedDimensionsVisible = false;
+    }
 }
 
 namespace
@@ -647,7 +652,9 @@ namespace
     }
 
     static void DrawGuidedReferenceView(Rectangle bounds, const char* title,
-                                        const Camera3D& camera)
+                                        const Camera3D& camera,
+                                        float horizontalDimension,
+                                        float verticalDimension)
     {
         const int headerHeight = 30;
         const int contentWidth = std::max(1, static_cast<int>(bounds.width) - 2);
@@ -674,6 +681,58 @@ namespace
         DrawEditorText(title, static_cast<int>(bounds.x + 10.0f),
                        static_cast<int>(bounds.y + 6.0f), 15,
                        GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+
+        if (!guidedDimensionsVisible) return;
+
+        const Color dimensionColor = Color{ 255, 196, 64, 255 };
+        const Rectangle content = { bounds.x + 1.0f, bounds.y + headerHeight,
+                                    bounds.width - 2.0f, bounds.height - headerHeight - 1.0f };
+        const float pixelsPerUnit = content.height / camera.fovy;
+        const float objectWidth = horizontalDimension * pixelsPerUnit;
+        const float objectHeight = verticalDimension * pixelsPerUnit;
+        const Vector2 center = { content.x + content.width * 0.5f,
+                                 content.y + content.height * 0.5f };
+        const float left = center.x - objectWidth * 0.5f;
+        const float right = center.x + objectWidth * 0.5f;
+        const float top = center.y - objectHeight * 0.5f;
+        const float bottom = center.y + objectHeight * 0.5f;
+        const float horizontalY = std::min(content.y + content.height - 14.0f, bottom + 13.0f);
+        const float verticalX = std::min(content.x + content.width - 13.0f, right + 14.0f);
+        const float arrowSize = 5.0f;
+
+        // Horizontal dimension and extension lines.
+        DrawLineV({ left, bottom + 2.0f }, { left, horizontalY + 5.0f }, dimensionColor);
+        DrawLineV({ right, bottom + 2.0f }, { right, horizontalY + 5.0f }, dimensionColor);
+        DrawLineEx({ left, horizontalY }, { right, horizontalY }, 2.0f, dimensionColor);
+        DrawTriangle({ left, horizontalY }, { left + arrowSize, horizontalY - arrowSize },
+                     { left + arrowSize, horizontalY + arrowSize }, dimensionColor);
+        DrawTriangle({ right, horizontalY }, { right - arrowSize, horizontalY + arrowSize },
+                     { right - arrowSize, horizontalY - arrowSize }, dimensionColor);
+        const char* horizontalText = TextFormat("%.2f", horizontalDimension);
+        const Vector2 horizontalTextSize = MeasureThemeText(horizontalText, 13.0f);
+        DrawRectangle(static_cast<int>(center.x - horizontalTextSize.x * 0.5f - 3.0f),
+                      static_cast<int>(horizontalY - 8.0f),
+                      static_cast<int>(horizontalTextSize.x + 6.0f), 16,
+                      GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+        DrawThemeText(horizontalText, center.x - horizontalTextSize.x * 0.5f,
+                      horizontalY - 7.0f, 13.0f, dimensionColor);
+
+        // Vertical dimension and extension lines.
+        DrawLineV({ right + 2.0f, top }, { verticalX + 5.0f, top }, dimensionColor);
+        DrawLineV({ right + 2.0f, bottom }, { verticalX + 5.0f, bottom }, dimensionColor);
+        DrawLineEx({ verticalX, top }, { verticalX, bottom }, 2.0f, dimensionColor);
+        DrawTriangle({ verticalX, top }, { verticalX - arrowSize, top + arrowSize },
+                     { verticalX + arrowSize, top + arrowSize }, dimensionColor);
+        DrawTriangle({ verticalX, bottom }, { verticalX + arrowSize, bottom - arrowSize },
+                     { verticalX - arrowSize, bottom - arrowSize }, dimensionColor);
+        const char* verticalText = TextFormat("%.2f", verticalDimension);
+        const Vector2 verticalTextSize = MeasureThemeText(verticalText, 13.0f);
+        DrawRectangle(static_cast<int>(verticalX - verticalTextSize.x * 0.5f - 3.0f),
+                      static_cast<int>(center.y - 8.0f),
+                      static_cast<int>(verticalTextSize.x + 6.0f), 16,
+                      GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+        DrawThemeText(verticalText, verticalX - verticalTextSize.x * 0.5f,
+                      center.y - 7.0f, 13.0f, dimensionColor);
     }
 
     static void DrawGuidedReferenceViews()
@@ -704,11 +763,21 @@ namespace
             { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, frame.center,
             sideHeight, cameraDistance);
 
-        DrawGuidedReferenceView({ dock.x, dock.y, dock.width, viewHeight }, "Front", front);
+        DrawGuidedReferenceView({ dock.x, dock.y, dock.width, viewHeight }, "Front", front,
+                                frame.halfExtent.x * 2.0f, frame.halfExtent.y * 2.0f);
         DrawGuidedReferenceView({ dock.x, dock.y + viewHeight + gap, dock.width, viewHeight },
-                                "Top", top);
+                                "Top", top, frame.halfExtent.x * 2.0f,
+                                frame.halfExtent.z * 2.0f);
         DrawGuidedReferenceView({ dock.x, dock.y + (viewHeight + gap) * 2.0f,
-                                  dock.width, viewHeight }, "Side", side);
+                                  dock.width, viewHeight }, "Side", side,
+                                frame.halfExtent.z * 2.0f, frame.halfExtent.y * 2.0f);
+
+        const char* shortcut = guidedDimensionsVisible ? "M: Dimensions ON" : "M: Dimensions";
+        const Vector2 shortcutSize = MeasureThemeText(shortcut, 12.0f);
+        DrawThemeText(shortcut, dock.x + dock.width - shortcutSize.x - 9.0f,
+                      dock.y + 8.0f, 12.0f,
+                      guidedDimensionsVisible ? Color{ 255, 196, 64, 255 }
+                                              : GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
     }
 
     static bool IsPointerOverEditorUi()
@@ -796,6 +865,9 @@ void freeDrawInit() {
 void freeDrawUpdate() {
 
 	if (!freeDrawState.initiliased) return; // Prevent update if not initialized
+    if (guidedWorkspace && IsKeyPressed(KEY_M))
+        guidedDimensionsVisible = !guidedDimensionsVisible;
+
     bool usingGizmo = updateObjectTransformGizmo(freeDrawState.camera);
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
