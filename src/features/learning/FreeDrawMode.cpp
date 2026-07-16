@@ -562,13 +562,72 @@ namespace
                  static_cast<float>(GetScreenHeight()) - 52.0f };
     }
 
-    static Camera3D MakeGuidedReferenceCamera(Vector3 position, Vector3 up)
+    struct GuidedObjectFrame
+    {
+        Vector3 center = { 0.0f, 0.0f, 0.0f };
+        Vector3 halfExtent = { 1.0f, 1.0f, 1.0f };
+    };
+
+    static GuidedObjectFrame GetGuidedObjectFrame()
+    {
+        ObjectInstance* target = nullptr;
+
+        // Prefer the exercise's selected object; imported scenes fall back to
+        // the first non-light object in the workspace.
+        for (int type = 1; type <= 3 && target == nullptr; ++type)
+            for (int index = 0; index < getObjectCount(type); ++index)
+            {
+                ObjectInstance* candidate = getObjectMutable(type, index);
+                if (candidate != nullptr && !candidate->isLight && candidate->isSelected)
+                {
+                    target = candidate;
+                    break;
+                }
+            }
+
+        for (int type = 1; type <= 3 && target == nullptr; ++type)
+            for (int index = 0; index < getObjectCount(type); ++index)
+            {
+                ObjectInstance* candidate = getObjectMutable(type, index);
+                if (candidate != nullptr && !candidate->isLight)
+                {
+                    target = candidate;
+                    break;
+                }
+            }
+
+        if (target == nullptr) return {};
+
+        const Vector3 scale = { std::fabs(target->scale.x), std::fabs(target->scale.y),
+                                std::fabs(target->scale.z) };
+        const Matrix rotation = MatrixRotateXYZ({ target->rotation.x * DEG2RAD,
+                                                   target->rotation.y * DEG2RAD,
+                                                   target->rotation.z * DEG2RAD });
+        GuidedObjectFrame frame;
+        frame.center = target->position;
+        // Rotated axis-aligned extents. All built-in meshes have unit local
+        // half-extents, including custom/imported objects represented here.
+        frame.halfExtent =
+        {
+            std::fabs(rotation.m0) * scale.x + std::fabs(rotation.m4) * scale.y +
+                std::fabs(rotation.m8) * scale.z,
+            std::fabs(rotation.m1) * scale.x + std::fabs(rotation.m5) * scale.y +
+                std::fabs(rotation.m9) * scale.z,
+            std::fabs(rotation.m2) * scale.x + std::fabs(rotation.m6) * scale.y +
+                std::fabs(rotation.m10) * scale.z
+        };
+        return frame;
+    }
+
+    static Camera3D MakeGuidedReferenceCamera(Vector3 direction, Vector3 up,
+                                               Vector3 target, float frameHeight,
+                                               float distance)
     {
         Camera3D camera = {};
-        camera.position = position;
-        camera.target = { 0.0f, 0.0f, 0.0f };
+        camera.position = Vector3Add(target, Vector3Scale(direction, distance));
+        camera.target = target;
         camera.up = up;
-        camera.fovy = 20.0f;
+        camera.fovy = std::max(frameHeight, 0.25f);
         camera.projection = CAMERA_ORTHOGRAPHIC;
         return camera;
     }
@@ -622,12 +681,28 @@ namespace
         const Rectangle dock = GetEditorDockBounds();
         const float gap = 4.0f;
         const float viewHeight = (dock.height - gap * 2.0f) / 3.0f;
+        const float contentHeight = std::max(1.0f, viewHeight - 31.0f);
+        const float aspect = std::max(0.1f, (dock.width - 2.0f) / contentHeight);
+        const float padding = 1.18f;
+        const GuidedObjectFrame frame = GetGuidedObjectFrame();
+        const float cameraDistance = 5.0f + 2.0f * std::max(
+            frame.halfExtent.x, std::max(frame.halfExtent.y, frame.halfExtent.z));
+
+        const float frontHeight = 2.0f * padding *
+            std::max(frame.halfExtent.y, frame.halfExtent.x / aspect);
+        const float topHeight = 2.0f * padding *
+            std::max(frame.halfExtent.z, frame.halfExtent.x / aspect);
+        const float sideHeight = 2.0f * padding *
+            std::max(frame.halfExtent.y, frame.halfExtent.z / aspect);
         const Camera3D front = MakeGuidedReferenceCamera(
-            { 0.0f, 0.0f, 10.0f }, { 0.0f, 1.0f, 0.0f });
+            { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f, 0.0f }, frame.center,
+            frontHeight, cameraDistance);
         const Camera3D top = MakeGuidedReferenceCamera(
-            { 0.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, -1.0f });
+            { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, -1.0f }, frame.center,
+            topHeight, cameraDistance);
         const Camera3D side = MakeGuidedReferenceCamera(
-            { 10.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
+            { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, frame.center,
+            sideHeight, cameraDistance);
 
         DrawGuidedReferenceView({ dock.x, dock.y, dock.width, viewHeight }, "Front", front);
         DrawGuidedReferenceView({ dock.x, dock.y + viewHeight + gap, dock.width, viewHeight },
