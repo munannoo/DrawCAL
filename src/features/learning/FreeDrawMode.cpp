@@ -12,6 +12,10 @@ void SetGuidedWorkspace(bool guided)
 
 namespace
 {
+    static RenderTexture2D guidedViewTexture = {};
+    static int guidedViewTextureWidth = 0;
+    static int guidedViewTextureHeight = 0;
+
     static void DrawEditorText(const char* text, int x, int y, int fontSize, Color color)
     {
         // GuiGetFont() follows GuiLoadStyle*(), so custom editor labels use the
@@ -558,6 +562,80 @@ namespace
                  static_cast<float>(GetScreenHeight()) - 52.0f };
     }
 
+    static Camera3D MakeGuidedReferenceCamera(Vector3 position, Vector3 up)
+    {
+        Camera3D camera = {};
+        camera.position = position;
+        camera.target = { 0.0f, 0.0f, 0.0f };
+        camera.up = up;
+        camera.fovy = 20.0f;
+        camera.projection = CAMERA_ORTHOGRAPHIC;
+        return camera;
+    }
+
+    static void EnsureGuidedViewTexture(int width, int height)
+    {
+        width = std::max(width, 1);
+        height = std::max(height, 1);
+        if (guidedViewTexture.id != 0 &&
+            guidedViewTextureWidth == width && guidedViewTextureHeight == height)
+            return;
+
+        if (guidedViewTexture.id != 0) UnloadRenderTexture(guidedViewTexture);
+        guidedViewTexture = LoadRenderTexture(width, height);
+        guidedViewTextureWidth = width;
+        guidedViewTextureHeight = height;
+    }
+
+    static void DrawGuidedReferenceView(Rectangle bounds, const char* title,
+                                        const Camera3D& camera)
+    {
+        const int headerHeight = 30;
+        const int contentWidth = std::max(1, static_cast<int>(bounds.width) - 2);
+        const int contentHeight = std::max(1, static_cast<int>(bounds.height) - headerHeight - 1);
+        EnsureGuidedViewTexture(contentWidth, contentHeight);
+
+        BeginTextureMode(guidedViewTexture);
+        ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+        DrawCameraScene(camera, false);
+        EndTextureMode();
+
+        DrawRectangleRec(bounds, GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+        DrawTexturePro(guidedViewTexture.texture,
+                       { 0.0f, 0.0f, static_cast<float>(contentWidth),
+                         -static_cast<float>(contentHeight) },
+                       { bounds.x + 1.0f, bounds.y + headerHeight,
+                         bounds.width - 2.0f, bounds.height - headerHeight - 1.0f },
+                       { 0.0f, 0.0f }, 0.0f, WHITE);
+        DrawRectangle(static_cast<int>(bounds.x), static_cast<int>(bounds.y),
+                      static_cast<int>(bounds.width), headerHeight,
+                      GetColor(GuiGetStyle(DEFAULT, BASE_COLOR_NORMAL)));
+        DrawRectangleLinesEx(bounds, 1.0f,
+                             GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL)));
+        DrawEditorText(title, static_cast<int>(bounds.x + 10.0f),
+                       static_cast<int>(bounds.y + 6.0f), 15,
+                       GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+    }
+
+    static void DrawGuidedReferenceViews()
+    {
+        const Rectangle dock = GetEditorDockBounds();
+        const float gap = 4.0f;
+        const float viewHeight = (dock.height - gap * 2.0f) / 3.0f;
+        const Camera3D front = MakeGuidedReferenceCamera(
+            { 0.0f, 0.0f, 10.0f }, { 0.0f, 1.0f, 0.0f });
+        const Camera3D top = MakeGuidedReferenceCamera(
+            { 0.0f, 10.0f, 0.0f }, { 0.0f, 0.0f, -1.0f });
+        const Camera3D side = MakeGuidedReferenceCamera(
+            { 10.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f });
+
+        DrawGuidedReferenceView({ dock.x, dock.y, dock.width, viewHeight }, "Front", front);
+        DrawGuidedReferenceView({ dock.x, dock.y + viewHeight + gap, dock.width, viewHeight },
+                                "Top", top);
+        DrawGuidedReferenceView({ dock.x, dock.y + (viewHeight + gap) * 2.0f,
+                                  dock.width, viewHeight }, "Side", side);
+    }
+
     static bool IsPointerOverEditorUi()
     {
         return CheckCollisionPointRec(GetMousePosition(), GetEditorDockBounds());
@@ -730,9 +808,16 @@ void freeDrawDraw() {
         contextMenu(freeDrawState.mouseButtonPressed, freeDrawState.camera); // under InputHandler.cpp
     }
 
-    // Properties tab � middle right
-    DrawWorkspacePanel();
-    getProperties();
+    if (guidedWorkspace)
+    {
+        // Fixed, display-only orthographic views replace all editable dock UI.
+        DrawGuidedReferenceViews();
+    }
+    else
+    {
+        DrawWorkspacePanel();
+        getProperties();
+    }
     
 
     // Draw camera controller settings overlay for user reference
@@ -745,6 +830,13 @@ void freeDrawDraw() {
 void freeDrawUnload() {
     freeDrawState.initiliased = false;
     UnloadTransformGizmo();
+    if (guidedViewTexture.id != 0)
+    {
+        UnloadRenderTexture(guidedViewTexture);
+        guidedViewTexture = {};
+        guidedViewTextureWidth = 0;
+        guidedViewTextureHeight = 0;
+    }
     // Models, material textures, and lighting are application-wide resources
     // initialized once by sceneManagerInit(). Destroying them here made a
     // second visit to Learn use invalid GPU resources and crash.

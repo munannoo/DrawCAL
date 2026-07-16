@@ -4,6 +4,6 @@
 #include "raylib.h"
 
 void initgridShader();
-void DrawCameraScene(const Camera3D &camera);
+void DrawCameraScene(const Camera3D &camera, bool drawTransformGizmo = true);
 
 #endif // renderer_h

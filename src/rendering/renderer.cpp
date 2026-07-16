@@ -30,7 +30,7 @@ void initgridShader()
 Vector4 gridCol = { 0.5f, 0.5f, 0.5f, 0.8f };
 Vector4 farGridCol = { 0.2f, 0.2f, 0.2f, 0.2f };
 float scale = 1.0f;
-void DrawCameraScene(const Camera3D &camera)
+void DrawCameraScene(const Camera3D &camera, bool drawTransformGizmo)
 {
     Vector3 camPos = camera.position;
 
@@ -56,7 +56,7 @@ void DrawCameraScene(const Camera3D &camera)
         renderSphere();
         renderCylinder();
         DrawSceneLights();
-        drawObjectTransformGizmo(camera);
+        if (drawTransformGizmo) drawObjectTransformGizmo(camera);
 
     EndMode3D();
 }
