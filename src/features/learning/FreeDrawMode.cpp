@@ -20,6 +20,8 @@ namespace
     static RenderTexture2D guidedViewTexture = {};
     static int guidedViewTextureWidth = 0;
     static int guidedViewTextureHeight = 0;
+    static bool workspacePanelVisible = true;
+    static bool propertiesPanelVisible = true;
 
     static void DrawEditorText(const char* text, int x, int y, int fontSize, Color color)
     {
@@ -291,8 +293,8 @@ namespace
 
         y += 19.0f;
 
-        constexpr float gap = 6.0f;
-        constexpr float labelWidth = 14.0f;
+        float gap = 6.0f;
+        float labelWidth = 14.0f;
         const float fieldHeight = GetEditorControlHeight();
 
         const float groupWidth =
@@ -388,7 +390,7 @@ namespace
             "A"
         };
 
-        constexpr float gap = 5.0f;
+        float gap = 5.0f;
 
         const float fieldWidth =
             (width - gap * 3.0f) / 4.0f;
@@ -555,16 +557,6 @@ namespace
             default:
                 return "Unknown";
         }
-    }
-
-    static Rectangle GetEditorDockBounds()
-    {
-        // Keep vector values readable without consuming too much viewport at
-        // lower resolutions.
-        const float width = ClampPropertyValue(GetScreenWidth() * 0.30f, 370.0f, 430.0f);
-        return { static_cast<float>(GetScreenWidth()) - width,
-                 52.0f, width,
-                 static_cast<float>(GetScreenHeight()) - 52.0f };
     }
 
     struct GuidedObjectFrame
@@ -782,28 +774,22 @@ namespace
 
     static bool IsPointerOverEditorUi()
     {
-        return CheckCollisionPointRec(GetMousePosition(), GetEditorDockBounds());
-    }
-
-    static void DrawPanelFrame(Rectangle bounds, const char* title)
-    {
-        const Color background = GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR));
-        const Color border = GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL));
-        const Color text = GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL));
-        DrawRectangleRec(bounds, Fade(background, 0.97f));
-        DrawRectangleLinesEx(bounds, 1.0f, border);
-        const Color header = GetColor(GuiGetStyle(DEFAULT, BASE_COLOR_NORMAL));
-        DrawRectangle(static_cast<int>(bounds.x), static_cast<int>(bounds.y),
-                      static_cast<int>(bounds.width), 32, header);
-        DrawEditorText(title, static_cast<int>(bounds.x + 10.0f),
-                 static_cast<int>(bounds.y + 7.0f), 16, text);
+        return IsPointerOverEditorLayout(
+            workspacePanelVisible,
+            propertiesPanelVisible,
+            guidedWorkspace,
+            freeDrawState.viewDropdownOpen
+        );
     }
 
     static void DrawWorkspacePanel()
     {
-        Rectangle dock = GetEditorDockBounds();
-        Rectangle panel = { dock.x, dock.y, dock.width, dock.height * 0.42f };
-        DrawPanelFrame(panel, "Workspace");
+        const Rectangle panel = GetWorkspacePanelBounds(propertiesPanelVisible);
+        if (DrawEditorPanel(panel, "Workspace"))
+        {
+            workspacePanelVisible = false;
+            return;
+        }
 
         const Color text = GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL));
         const float rowHeight = static_cast<float>(std::max(26, GuiGetStyle(DEFAULT, TEXT_SIZE) + 12));
@@ -935,19 +921,6 @@ void freeDrawUpdate() {
 
 void freeDrawDraw() {
     DrawCameraScene(freeDrawState.camera);
-    // Top-right options (gear) button to open Options menu
-    const float iconSize = 32.0f;
-    Rectangle btnOptionsIcon = { (float)GetScreenWidth() - iconSize - 10.0f, 10.0f, iconSize, iconSize };
-    // Use a GuiButton for click detection, draw a gear-like icon on top to match rayGUI style
-    if (GuiButton(btnOptionsIcon, "")) {
-        sceneManagerChangeScene(sceneId::SCENE_OPTIONS);
-    }
-    GuiDrawIcon(ICON_GEAR_BIG, btnOptionsIcon.x, btnOptionsIcon.y, 2,
-                GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
-
-    //topBar(currentResIndex, freeDrawState.dropdownEditmode);
-
-    changeCameraView();
 
     if (!guidedWorkspace &&
         ((IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && !IsPointerOverEditorUi()) ||
@@ -962,10 +935,27 @@ void freeDrawDraw() {
     }
     else
     {
-        DrawWorkspacePanel();
-        getProperties();
+        if (workspacePanelVisible) DrawWorkspacePanel();
+        if (propertiesPanelVisible) getProperties();
     }
-    
+
+    bool sceneChanged = DrawEditorToolbar(
+        workspacePanelVisible,
+        propertiesPanelVisible,
+        freeDrawState.camera,
+        freeDrawState.currentViewIndex,
+        freeDrawState.lastViewIndex,
+        freeDrawState.viewDropdownOpen,
+        freeDrawState.cameraLocked,
+        guidedWorkspace
+    );
+
+    if (sceneChanged)
+    {
+        propertyBoundType = -1;
+        propertyBoundIndex = -1;
+        ResetPropertyEditorState();
+    }
 
     // Draw camera controller settings overlay for user reference
     if (freeDrawState.helpTip)
@@ -989,89 +979,21 @@ void freeDrawUnload() {
     // second visit to Learn use invalid GPU resources and crash.
 }
 
-void changeCameraView() {
-    // Top-right view dropdown
-    const int viewW = 140;
-    const int viewH = 30;
-    Rectangle viewRect = { (float)GetScreenWidth() / (float)2 - viewW / 2, viewH, (float)viewW, (float)viewH };
-    const char* viewOptions = "Free;Front;Top;Left;Right";
-    static int activeViewIndex = static_cast<int>(freeDrawState.currentViewIndex);
-
-    // Dropdown box, main key
-    if (GuiDropdownBox(viewRect, viewOptions, &activeViewIndex, freeDrawState.viewDropdownOpen)) {
-        freeDrawState.viewDropdownOpen = !freeDrawState.viewDropdownOpen;
-    }
-
-    freeDrawState.currentViewIndex = static_cast<viewIndex>(activeViewIndex);
-
-    // If view selection changed, apply camera preset and lock camera movement
-    if (freeDrawState.currentViewIndex != freeDrawState.lastViewIndex) {
-        // Apply presets based on selection (0 = Free/unlocked)
-        switch (freeDrawState.currentViewIndex) {
-            case VIEW_FREE: // Free - restore default controller camera
-                InitCamera(freeDrawState.camera);
-                freeDrawState.cameraLocked = false;
-                break;
-            case VIEW_FRONT: // Front
-                freeDrawState.camera.position = { 0.0f, 0.0f, 10.0f };
-                freeDrawState.camera.target = { 0.0f, 0.0f, 0.0f };
-                freeDrawState.camera.up = { 0.0f, 1.0f, 0.0f };
-                freeDrawState.camera.projection = CAMERA_PERSPECTIVE;
-                freeDrawState.camera.fovy = 45.0f;
-                freeDrawState.cameraLocked = true;
-                break;
-            case VIEW_TOP: // Top
-                freeDrawState.camera.position = { 0.0f, 10.0f, 0.0f };
-                freeDrawState.camera.target = { 0.0f, 0.0f, 0.0f };
-                freeDrawState.camera.up = { 0.0f, 0.0f, -1.0f };
-                freeDrawState.camera.projection = CAMERA_ORTHOGRAPHIC;
-                freeDrawState.camera.fovy = 45.0f;
-                freeDrawState.cameraLocked = true;
-                break;
-            case VIEW_LEFT: // Left
-                freeDrawState.camera.position = { -10.0f, 0.0f, 0.0f };
-                freeDrawState.camera.target = { 0.0f, 0.0f, 0.0f };
-                freeDrawState.camera.up = { 0.0f, 1.0f, 0.0f };
-                freeDrawState.camera.projection = CAMERA_PERSPECTIVE;
-                freeDrawState.camera.fovy = 45.0f;
-                freeDrawState.cameraLocked = true;
-                break;
-            case VIEW_RIGHT: // Right
-                freeDrawState.camera.position = { 10.0f, 0.0f, 0.0f };
-                freeDrawState.camera.target = { 0.0f, 0.0f, 0.0f };
-                freeDrawState.camera.up = { 0.0f, 1.0f, 0.0f };
-                freeDrawState.camera.projection = CAMERA_PERSPECTIVE;
-                freeDrawState.camera.fovy = 45.0f;
-                freeDrawState.cameraLocked = true;
-                break;
-			case VIEW_NONE:
-			default:
-                break;
-        }
-        freeDrawState.lastViewIndex = freeDrawState.currentViewIndex;
-    }
-}
-
-
 void getProperties()
 {
     const int total = getTotalSelectedCount();
 
-    const Rectangle dock = GetEditorDockBounds();
-    const float panelWidth = dock.width;
-    const float panelY = dock.y + dock.height * 0.42f;
-    const float panelHeight = GetScreenHeight() - panelY;
-    const float panelX = dock.x;
+    const Rectangle panel = GetPropertiesPanelBounds(workspacePanelVisible);
+    const float panelWidth = panel.width;
+    const float panelY = panel.y;
+    const float panelHeight = panel.height;
+    const float panelX = panel.x;
 
-    Rectangle panel =
+    if (DrawEditorPanel(panel, "Properties"))
     {
-        panelX,
-        panelY,
-        panelWidth,
-        panelHeight
-    };
-
-    DrawPanelFrame(panel, "Properties");
+        propertiesPanelVisible = false;
+        return;
+    }
 
     const float contentX = panelX + 10.0f;
     const float contentWidth = panelWidth - 20.0f;

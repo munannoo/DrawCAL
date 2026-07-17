@@ -11,13 +11,13 @@
 #include "features/manipulation/Transform.h"
 #include "features/learning/FreeDrawMode.h"
 #include "ui/scenes/sceneManager.h"
+#include "ui/layout/layout.h"
 #include "raygui.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 
-enum viewIndex { VIEW_NONE = -1, VIEW_FREE = 0, VIEW_FRONT, VIEW_TOP, VIEW_LEFT, VIEW_RIGHT };
 // selected view (0=Front,1=Top,2=Left,3=Right)
 // Put free draw mode specific variables/Textures here, they will be initialised in freeDrawInit and unloaded in freeDrawUnload
 static struct freeDrawState {
@@ -43,6 +43,5 @@ void freeDrawUnload();
 // Guided sessions use the editor without the object-creation context menu.
 void SetGuidedWorkspace(bool guided);
 
-void changeCameraView();
 void getProperties();
 #endif // FreeDrawMode_H
