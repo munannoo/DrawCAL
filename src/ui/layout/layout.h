@@ -17,24 +17,14 @@ Rectangle GetEditorDockBounds();
 Rectangle GetWorkspacePanelBounds(bool propertiesVisible);
 Rectangle GetPropertiesPanelBounds(bool workspaceVisible);
 
-bool IsPointerOverEditorLayout(
-    bool workspaceVisible,
-    bool propertiesVisible,
-    bool guidedWorkspace,
-    bool viewDropdownOpen
-);
+bool IsPointerOverEditorLayout(bool workspaceVisible, bool propertiesVisible,
+                               bool guidedWorkspace, bool viewDropdownOpen);
 
 bool DrawEditorPanel(Rectangle bounds, const char* title);
 
-bool DrawEditorToolbar(
-    bool& workspaceVisible,
-    bool& propertiesVisible,
-    Camera3D& camera,
-    viewIndex& currentView,
-    viewIndex& lastView,
-    bool& viewDropdownOpen,
-    bool& cameraLocked,
-    bool guidedWorkspace
-);
+bool DrawEditorToolbar(bool& workspaceVisible, bool& propertiesVisible,
+                       Camera3D& camera, viewIndex& currentView,
+                       viewIndex& lastView, bool& viewDropdownOpen,
+                       bool& cameraLocked, bool guidedWorkspace);
 
 #endif
