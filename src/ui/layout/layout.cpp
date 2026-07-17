@@ -5,11 +5,11 @@
 #include "raygui.h"
 #include "ui/scenes/sceneManager.h"
 
-float editorToolbarHeight = 58.0f;
+float editorToolbarHeight = 82.0f;
 
 Rectangle GetViewSelectorBounds()
 {
-    return { (float)GetScreenWidth() - 210.0f, 12.0f, 150.0f, 34.0f };
+    return { (float)GetScreenWidth() - 210.0f, 36.0f, 150.0f, 34.0f };
 }
 
 Rectangle GetEditorDockBounds()
@@ -82,7 +82,7 @@ bool DrawEditorPanel(Rectangle bounds, const char* title)
 
 bool DrawToolbarButton(float& x, const char* text, float width)
 {
-    bool pressed = GuiButton({ x, 12.0f, width, 34.0f }, text);
+    bool pressed = GuiButton({ x, 36.0f, width, 34.0f }, text);
     x += width + 6.0f;
     return pressed;
 }
@@ -91,8 +91,13 @@ void DrawToolbarDivider(float& x)
 {
     x += 7.0f;
     Color border = GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL));
-    DrawLine((int)x, 14, (int)x, 44, Fade(border, 0.7f));
+    DrawLine((int)x, 9, (int)x, 72, Fade(border, 0.7f));
     x += 13.0f;
+}
+
+void DrawToolbarLabel(float x, float width, const char* text)
+{
+    GuiLabel({ x, 7.0f, width, 22.0f }, text);
 }
 
 bool InsertToolbarObject(int type, bool isLight, Camera3D& camera)
@@ -183,6 +188,7 @@ bool DrawEditorToolbar(bool& workspaceVisible, bool& propertiesVisible,
     if (!guidedWorkspace)
     {
         float x = 12.0f;
+        DrawToolbarLabel(x, 134.0f, "FILE");
         if (DrawToolbarButton(x, "Save", 64.0f)) save();
         if (DrawToolbarButton(x, "Load", 64.0f))
         {
@@ -192,6 +198,7 @@ bool DrawEditorToolbar(bool& workspaceVisible, bool& propertiesVisible,
         }
 
         DrawToolbarDivider(x);
+        DrawToolbarLabel(x, 324.0f, "CREATE");
         if (DrawToolbarButton(x, "+ Cube", 70.0f))
             changed = InsertToolbarObject(1, false, camera);
         if (DrawToolbarButton(x, "+ Sphere", 78.0f))
@@ -202,6 +209,7 @@ bool DrawEditorToolbar(bool& workspaceVisible, bool& propertiesVisible,
             changed = InsertToolbarObject(2, true, camera);
 
         DrawToolbarDivider(x);
+        DrawToolbarLabel(x, 72.0f, "EDIT");
         if (DrawToolbarButton(x, "Delete", 72.0f))
         {
             deleteobj();
@@ -209,14 +217,17 @@ bool DrawEditorToolbar(bool& workspaceVisible, bool& propertiesVisible,
         }
 
         DrawToolbarDivider(x);
-        GuiToggle({ x, 12.0f, 104.0f, 34.0f }, "Workspace", &workspaceVisible);
+        DrawToolbarLabel(x, 210.0f, "PANELS");
+        GuiToggle({ x, 36.0f, 104.0f, 34.0f }, "Workspace", &workspaceVisible);
         x += 110.0f;
-        GuiToggle({ x, 12.0f, 100.0f, 34.0f }, "Properties", &propertiesVisible);
+        GuiToggle({ x, 36.0f, 100.0f, 34.0f }, "Properties", &propertiesVisible);
     }
 
+    Rectangle view = GetViewSelectorBounds();
+    DrawToolbarLabel(view.x, view.width, "VIEW");
     DrawViewSelector(camera, currentView, lastView, dropdownOpen, cameraLocked);
 
-    Rectangle settings = { (float)GetScreenWidth() - 46.0f, 12.0f, 34.0f, 34.0f };
+    Rectangle settings = { (float)GetScreenWidth() - 46.0f, 36.0f, 34.0f, 34.0f };
     if (GuiButton(settings, ""))
         sceneManagerChangeScene(sceneId::SCENE_OPTIONS);
     GuiDrawIcon(ICON_GEAR_BIG, (int)settings.x, (int)settings.y, 2,

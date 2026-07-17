@@ -1,5 +1,6 @@
 #include "FreeDrawMode.h"
 #include "raylib.h"
+#include "raymath.h"
 #include "raygui.h"
 
 static bool guidedWorkspace = false;
@@ -23,15 +24,13 @@ namespace
     static bool workspacePanelVisible = true;
     static bool propertiesPanelVisible = true;
 
-    static void DrawEditorText(const char* text, int x, int y, int fontSize, Color color)
+    static void DrawEditorText(const char* text, float x, float y, int fontSize, Color color)
     {
         // GuiGetFont() follows GuiLoadStyle*(), so custom editor labels use the
         // same typeface as buttons, fields, and dropdowns in every theme.
         const float readableSize = static_cast<float>(fontSize);
         const float spacing = static_cast<float>(std::max(0, GuiGetStyle(DEFAULT, TEXT_SPACING)));
-        DrawTextEx(GuiGetFont(), text,
-                   { static_cast<float>(x), static_cast<float>(y) },
-                   readableSize, spacing, color);
+        DrawTextEx(GuiGetFont(), text, { x, y }, readableSize, spacing, color);
     }
 
     static float GetEditorControlHeight()
@@ -280,8 +279,8 @@ namespace
     {
         DrawEditorText(
             title,
-            static_cast<int>(x),
-            static_cast<int>(y),
+            x,
+            y,
             14,
             GetColor(
                 GuiGetStyle(
@@ -321,8 +320,8 @@ namespace
 
             DrawEditorText(
                 labels[i],
-                static_cast<int>(groupX),
-                static_cast<int>(y + 5.0f),
+                groupX,
+                y + 5.0f,
                 12,
                 GetColor(
                     GuiGetStyle(
@@ -361,8 +360,8 @@ namespace
     {
         DrawEditorText(
             "Color",
-            static_cast<int>(x),
-            static_cast<int>(y),
+            x,
+            y,
             14,
             GetColor(
                 GuiGetStyle(
@@ -670,8 +669,7 @@ namespace
                       GetColor(GuiGetStyle(DEFAULT, BASE_COLOR_NORMAL)));
         DrawRectangleLinesEx(bounds, 1.0f,
                              GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL)));
-        DrawEditorText(title, static_cast<int>(bounds.x + 10.0f),
-                       static_cast<int>(bounds.y + 6.0f), 15,
+        DrawEditorText(title, bounds.x + 10.0f, bounds.y + 6.0f, 15,
                        GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
         if (!guidedDimensionsVisible) return;
@@ -794,8 +792,8 @@ namespace
         const Color text = GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL));
         const float rowHeight = static_cast<float>(std::max(26, GuiGetStyle(DEFAULT, TEXT_SIZE) + 12));
         float y = panel.y + 39.0f;
-        DrawEditorText("v", static_cast<int>(panel.x + 10), static_cast<int>(y + 4), 13, text);
-        DrawEditorText("Workspace", static_cast<int>(panel.x + 28), static_cast<int>(y + 4), 14, text);
+        DrawEditorText("v", panel.x + 10.0f, y + 4.0f, 13, text);
+        DrawEditorText("Workspace", panel.x + 28.0f, y + 4.0f, 14, text);
         y += rowHeight;
 
         int visibleCount = 0;
@@ -827,7 +825,7 @@ namespace
         }
 
         if (visibleCount == 0)
-            DrawEditorText("Workspace is empty", static_cast<int>(panel.x + 28), static_cast<int>(y + 3),
+            DrawEditorText("Workspace is empty", panel.x + 28.0f, y + 3.0f,
                      13, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_DISABLED)));
     }
 }
@@ -1009,8 +1007,8 @@ void getProperties()
 
         DrawEditorText(
             "No object selected",
-            static_cast<int>(contentX),
-            static_cast<int>(y),
+            contentX,
+            y,
             13,
             GetColor(
                 GuiGetStyle(
@@ -1035,8 +1033,8 @@ void getProperties()
                 "Multiple objects selected: %d",
                 total
             ),
-            static_cast<int>(contentX),
-            static_cast<int>(y),
+            contentX,
+            y,
             13,
             GetColor(
                 GuiGetStyle(
@@ -1076,8 +1074,8 @@ void getProperties()
 
     DrawEditorText(
         TextFormat("%s %d", typeName, selectedIndex + 1),
-        static_cast<int>(contentX),
-        static_cast<int>(y),
+        contentX,
+        y,
         13,
         GetColor(
             GuiGetStyle(
@@ -1091,7 +1089,7 @@ void getProperties()
 
     if (!selected->isLight)
     {
-        DrawEditorText("Material", static_cast<int>(contentX), static_cast<int>(y + 5.0f), 14,
+        DrawEditorText("Material", contentX, y + 5.0f, 14,
                        GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
         int materialIndex = MaterialToPropertyIndex(selected->material);
@@ -1155,8 +1153,8 @@ void getProperties()
     {
         DrawEditorText(
             "Light",
-            static_cast<int>(contentX),
-            static_cast<int>(y),
+            contentX,
+            y,
             14,
             GetColor(
                 GuiGetStyle(
@@ -1170,8 +1168,8 @@ void getProperties()
 
         DrawEditorText(
             "Intensity",
-            static_cast<int>(contentX),
-            static_cast<int>(y + 5.0f),
+            contentX,
+            y + 5.0f,
             12,
             GetColor(
                 GuiGetStyle(
@@ -1199,8 +1197,8 @@ void getProperties()
 
         DrawEditorText(
             "Radius",
-            static_cast<int>(contentX),
-            static_cast<int>(y + 5.0f),
+            contentX,
+            y + 5.0f,
             12,
             GetColor(
                 GuiGetStyle(
