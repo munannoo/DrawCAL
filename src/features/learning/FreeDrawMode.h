@@ -36,6 +36,7 @@ static struct freeDrawState {
 	bool propertiesPanelOpen;
 	bool workspacePanelOpen;
 	std::vector<ViewportSlot> activeViews;
+	bool usingGizmo;
 } freeDrawState;
 
 

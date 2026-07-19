@@ -24,9 +24,8 @@ void unloadModels();
 
 void deleteObjects();
 
-bool updateObjectTransformGizmo(Camera3D camera);
-
-void drawObjectTransformGizmo(Camera3D camera);
+bool updateObjectTransformGizmo(Camera3D camera, Rectangle viewport);
+void drawObjectTransformGizmo(Camera3D camera, Rectangle viewport);
 
 //load and save functions, defined in object.cpp but main logic is present in saveNload.cpp
 void load();

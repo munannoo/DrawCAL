@@ -88,7 +88,7 @@ void DrawCameraScene(const Camera3D& camera, Rectangle viewport, RenderTexture2D
 
         renderLightObjects();
         drawGrid(camera);
-        drawObjectTransformGizmo(camera);
+        drawObjectTransformGizmo(camera, viewport);
     }
     EndMode3D();
     EndTextureMode();

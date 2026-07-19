@@ -8,17 +8,17 @@
 namespace UiStyle
 {
     constexpr float kPanelPadding = 12.0f;
-    constexpr float kSectionGap = 16.0f;   // space between distinct groups (Material / Position / Rotation...)
-    constexpr float kLabelToField = 6.0f;    // space between a label and the control under it
-    constexpr float kFieldGap = 10.0f;   // space after a finished field group
-    constexpr float kDividerMargin = 8.0f;    // space above/below a divider line
-    constexpr float kPanelHeaderHeight = 34.0f; // header bar (32) + accent line (2) — a collapsed panel is just this
+    constexpr float kSectionGap = 16.0f;
+    constexpr float kLabelToField = 6.0f;
+    constexpr float kFieldGap = 10.0f;
+    constexpr float kDividerMargin = 8.0f;
+    constexpr float kPanelHeaderHeight = 34.0f;
     constexpr float kCameraWeight = 0.25f;
     constexpr float kWorkspaceWeight = 0.20f;
     constexpr float kPropertiesWeight = 0.55f;
 
-    const Color kAccent = { 90, 160, 255, 255 };   // focus / selection accent
-    const Color kAccentSoft = { 90, 160, 255, 40 };    // faint accent fill (hover/alt rows)
+    const Color kAccent = { 90, 160, 255, 255 };
+    const Color kAccentSoft = { 90, 160, 255, 40 };
     const Color kShadow = { 0, 0, 0, 35 };
 }
 
@@ -26,8 +26,8 @@ namespace
 {
     cameraController& getEditableCamera() {
         return freeDrawState.activeViews[0].camera;
-
     }
+
     static std::vector<Rectangle> computeViewportBounds(int count)
     {
         float w = static_cast<float>(GetScreenWidth());
@@ -56,8 +56,6 @@ namespace
 
     static Rectangle getEditorDockBounds()
     {
-        // Keep vector values readable without consuming too much viewport at
-        // lower resolutions.
         const float width = Clamp(GetScreenWidth() * 0.30f, 370.0f, 430.0f);
         return { static_cast<float>(GetScreenWidth()) - width, 52.0f, width, static_cast<float>(GetScreenHeight()) - 52.0f };
     }
@@ -73,7 +71,7 @@ namespace
             + (freeDrawState.workspacePanelOpen ? kWorkspaceWeight : 0.0f)
             + (freeDrawState.propertiesPanelOpen ? kPropertiesWeight : 0.0f);
 
-        if (openWeightSum <= 0.0f) return kPanelHeaderHeight; // guard divide-by-zero when all panels are closed
+        if (openWeightSum <= 0.0f) return kPanelHeaderHeight;
 
         float available = dockHeight - closedCount * kPanelHeaderHeight;
         return available * (kCameraWeight / openWeightSum);
@@ -89,75 +87,39 @@ namespace
         float openWeightSum = kWorkspaceWeight + (freeDrawState.cameraPanelOpen ? kCameraWeight : 0.0f) + (freeDrawState.propertiesPanelOpen ? kPropertiesWeight : 0.0f);
         float available = dockHeight - closedCount * kPanelHeaderHeight;
 
-        if (openWeightSum <= 0.0f) return kPanelHeaderHeight; // guard divide-by-zero when all panels are closed
+        if (openWeightSum <= 0.0f) return kPanelHeaderHeight;
 
         return available * (kWorkspaceWeight / openWeightSum);
     }
 
     Rectangle getCameraPanelBounds() {
         Rectangle dock = getEditorDockBounds();
-
-        Rectangle panel = {
-            dock.x,
-            dock.y,
-            dock.width,
-            getCameraPanelHeight()
-        };
-
-        return panel;
+        return { dock.x, dock.y, dock.width, getCameraPanelHeight() };
     }
     Rectangle getWorkspacePanelBounds() {
         Rectangle dock = getEditorDockBounds();
-        Rectangle panel = {
-            dock.x,
-            dock.y + getCameraPanelHeight(),
-            dock.width,
-            getWorkspacePanelHeight()
-        };
-        return panel;
+        return { dock.x, dock.y + getCameraPanelHeight(), dock.width, getWorkspacePanelHeight() };
     }
     Rectangle getPropertiesPanelBounds() {
         Rectangle dock = getEditorDockBounds();
-
         float height = freeDrawState.propertiesPanelOpen ? (dock.height - getCameraPanelHeight() - getWorkspacePanelHeight()) : UiStyle::kPanelHeaderHeight;
-
-        Rectangle panel = { dock.x, dock.y + getCameraPanelHeight() + getWorkspacePanelHeight(), dock.width, height };
-        return panel;
+        return { dock.x, dock.y + getCameraPanelHeight() + getWorkspacePanelHeight(), dock.width, height };
     }
 
     const float fontSize = static_cast<float>(GuiGetStyle(DEFAULT, TEXT_SIZE));
     const float spacing = static_cast<float>(std::max(0, GuiGetStyle(DEFAULT, TEXT_SPACING)));
     const float editorControlHeight = std::max(27, GuiGetStyle(DEFAULT, TEXT_SIZE) + 11);
 
-
-
-    // we don't set height for properties panel, we let it fill out whatever is left
-    //const float propertiesPanelHeight = getEditorDockBounds().height * 0.50f;
-
     enum PropertyFloatField
     {
-        PROPERTY_POSITION_X = 0,
-        PROPERTY_POSITION_Y,
-        PROPERTY_POSITION_Z,
-
-        PROPERTY_ROTATION_X,
-        PROPERTY_ROTATION_Y,
-        PROPERTY_ROTATION_Z,
-
-        PROPERTY_SCALE_X,
-        PROPERTY_SCALE_Y,
-        PROPERTY_SCALE_Z,
-
-        PROPERTY_LIGHT_INTENSITY,
-        PROPERTY_LIGHT_RADIUS,
-
+        PROPERTY_POSITION_X = 0, PROPERTY_POSITION_Y, PROPERTY_POSITION_Z,
+        PROPERTY_ROTATION_X, PROPERTY_ROTATION_Y, PROPERTY_ROTATION_Z,
+        PROPERTY_SCALE_X, PROPERTY_SCALE_Y, PROPERTY_SCALE_Z,
+        PROPERTY_LIGHT_INTENSITY, PROPERTY_LIGHT_RADIUS,
         PROPERTY_FLOAT_FIELD_COUNT
     };
 
-    struct floatFieldState
-    {
-        char text[32] = {};
-    };
+    struct floatFieldState { char text[32] = {}; };
 
     static floatFieldState propertyFloatFields[PROPERTY_FLOAT_FIELD_COUNT];
     static int activeFloatField = -1;
@@ -167,19 +129,14 @@ namespace
 
     enum CameraPropertyField
     {
-        CAMERA_PROPERTY_FOV = 0,
-        CAMERA_PROPERTY_MOVE_SPEED,
-        CAMERA_PROPERTY_SENSITIVITY,
-        CAMERA_PROPERTY_NEAR,
-        CAMERA_PROPERTY_FAR,
-        CAMERA_PROPERTY_FIELD_COUNT
+        CAMERA_PROPERTY_FOV = 0, CAMERA_PROPERTY_MOVE_SPEED, CAMERA_PROPERTY_SENSITIVITY,
+        CAMERA_PROPERTY_NEAR, CAMERA_PROPERTY_FAR, CAMERA_PROPERTY_FIELD_COUNT
     };
 
     static floatFieldState cameraPropertyFields[CAMERA_PROPERTY_FIELD_COUNT];
     static int activeCameraPropertyField = -1;
 
     static bool propertyColorEditMode[4] = { false, false, false, false };
-
     static bool propertyMaterialDropdownOpen = false;
     static bool viewportClickCandidate = false;
     static Vector2 viewportClickStart = { 0.0f, 0.0f };
@@ -193,24 +150,19 @@ namespace
         return false;
     }
 
-    // converts a string to a float, returns false if the string is not a valid float representation
     static bool tryParseFloat(const char* text, float& result)
     {
         if (text == nullptr || text[0] == '\0') return false;
 
         char* end = nullptr;
-        // The strtof function converts a C-style string to a floating-point number (float) and updates a pointer to the character following the last character used in the conversion.
-        // end tells you where the conversion stopped, so you can check if the entire string was a valid float representation.
-        // parsed is our result of the conversion
         float parsed = std::strtof(text, &end);
 
-        if (end == text) return false;  // no text changes occured
+        if (end == text) return false;
 
-        while (*end == ' ' || *end == '\t') end++; // skip trailing whitespace
+        while (*end == ' ' || *end == '\t') end++;
 
-        if (*end != '\0') return false; // if there are any non-whitespace characters left, the string is not a valid float representation
-
-        if (!std::isfinite(parsed)) return false; // if the parsed value is not finite (i.e., it's NaN or infinity), return false
+        if (*end != '\0') return false;
+        if (!std::isfinite(parsed)) return false;
 
         result = parsed;
         return true;
@@ -223,17 +175,8 @@ namespace
     static void resetPropertyEditorState()
     {
         activeFloatField = -1;
-
-        for (auto& field : propertyFloatFields)
-        {
-            field.text[0] = '\0';
-        }
-
-        for (bool& editMode : propertyColorEditMode)
-        {
-            editMode = false;
-        }
-
+        for (auto& field : propertyFloatFields) field.text[0] = '\0';
+        for (bool& editMode : propertyColorEditMode) editMode = false;
         propertyMaterialDropdownOpen = false;
     }
 
@@ -242,87 +185,48 @@ namespace
     void updatePropertyBinding(shape* object)
     {
         if (propertyBoundObject == object) return;
-
         propertyBoundObject = object;
         resetPropertyEditorState();
     }
 
     static bool drawFloatPropertyField(Rectangle bounds, int fieldIndex, float& value, float minimum, float maximum)
     {
-        if (!(fieldIndex >= 0 && fieldIndex < PROPERTY_FLOAT_FIELD_COUNT))
-        {
-            return 0;
-        }
+        if (!(fieldIndex >= 0 && fieldIndex < PROPERTY_FLOAT_FIELD_COUNT)) return 0;
         floatFieldState& field = propertyFloatFields[fieldIndex];
 
-        if (activeFloatField != fieldIndex)
-        {
-            setFloatFieldText(field, value);
-        }
+        if (activeFloatField != fieldIndex) setFloatFieldText(field, value);
 
         bool editing = (activeFloatField == fieldIndex);
-
-        int result = GuiTextBox(
-            bounds,
-            field.text,
-            static_cast<int>(sizeof(field.text)),
-            editing
-        );
+        int result = GuiTextBox(bounds, field.text, static_cast<int>(sizeof(field.text)), editing);
 
         bool changed = false;
-
-        // Update the actual object while the user types.
         if (editing)
         {
             float parsedValue = value;
-
             if (tryParseFloat(field.text, parsedValue))
             {
                 parsedValue = Clamp(parsedValue, minimum, maximum);
-
-                if (fabsf(parsedValue - value) > 0.0001f)
-                {
-                    value = parsedValue;
-                    changed = true;
-                }
+                if (fabsf(parsedValue - value) > 0.0001f) { value = parsedValue; changed = true; }
             }
         }
 
-        // raygui returns a result when entering/leaving edit mode.
         if (result != 0)
         {
-            if (editing)
-            {
-                activeFloatField = -1;          // Finished editing
-            }
-            else
-            {
-                activeFloatField = fieldIndex;  // Start editing this field
-            }
-
+            activeFloatField = editing ? -1 : fieldIndex;
             editing = (activeFloatField == fieldIndex);
         }
 
-
-        // Clicking outside the field finishes editing.
         if (editing && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(GetMousePosition(), bounds))
         {
             float parsedValue = value;
-
-            if (tryParseFloat(field.text, parsedValue))
-            {
-                value = Clamp(parsedValue, minimum, maximum);
-
-                changed = true;
-            }
-
+            if (tryParseFloat(field.text, parsedValue)) { value = Clamp(parsedValue, minimum, maximum); changed = true; }
             activeFloatField = -1;
             setFloatFieldText(field, value);
         }
 
         return changed;
     }
-    // Self-contained twin of drawFloatPropertyField for camera settings — kept separate so editing a camera field doesn't get reset by updatePropertyBinding() firing on shape-selection changes.
+
     static bool drawCameraFloatField(Rectangle bounds, int fieldIndex, float& value, float minimum, float maximum)
     {
         if (!(fieldIndex >= 0 && fieldIndex < CAMERA_PROPERTY_FIELD_COUNT)) return false;
@@ -361,7 +265,6 @@ namespace
         return changed;
     }
 
-    // A thin horizontal rule with consistent breathing room, used between property groups.
     static void drawSectionDivider(float x, float& y, float width)
     {
         using namespace UiStyle;
@@ -371,8 +274,6 @@ namespace
         y += kDividerMargin;
     }
 
-    // A muted, slightly smaller section label with a small accent tick to its left —
-    // distinguishes "Position/Rotation/Scale" group headers from body text.
     static void drawSectionLabel(float x, float& y, const char* label)
     {
         using namespace UiStyle;
@@ -381,12 +282,12 @@ namespace
             Fade(GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)), 0.85f));
         y += 19.0f;
     }
+
     static bool DrawVector3Property(
         const char* title, float x, float& y, float width, Vector3& value, int firstFieldIndex, float minimum, float maximum)
     {
         using namespace UiStyle;
-
-        drawSectionLabel(x, y, title);   // replaces the old raw DrawTextEx + manual y += 19.0f
+        drawSectionLabel(x, y, title);
 
         bool changed = 0;
 
@@ -405,7 +306,6 @@ namespace
 
             Rectangle fieldBounds = { groupX + labelWidth, y, groupWidth - labelWidth, fieldHeight };
 
-            // Accent border around whichever field is currently being edited.
             bool isActive = (activeFloatField == firstFieldIndex + i);
             changed |= drawFloatPropertyField(fieldBounds, firstFieldIndex + i, *components[i], minimum, maximum);
             if (isActive) {
@@ -416,79 +316,23 @@ namespace
         return changed;
     }
 
-    static void drawColorProperty(
-        float x, float& y, float width, Color& color)
-    {
-        DrawTextEx(GuiGetFont(), "Color", { x, y }, fontSize, spacing, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
-
-        y += 19.0f;
-
-        int channels[4] =
-        {
-            static_cast<int>(color.r),
-            static_cast<int>(color.g),
-            static_cast<int>(color.b),
-            static_cast<int>(color.a)
-        };
-
-        const char* labels[4] =
-        { "R", "G", "B", "A" };
-
-        constexpr float gap = 5.0f;
-
-        const float fieldWidth = (width - gap * 3.0f) / 4.0f;
-
-        for (int i = 0; i < 4; i++)
-        {
-            Rectangle fieldBounds = {
-                x + i * (fieldWidth + gap), y, fieldWidth, editorControlHeight };
-
-            bool wasEditing = propertyColorEditMode[i];
-
-            int result = GuiValueBox(fieldBounds, labels[i], &channels[i], 0, 255, wasEditing);
-
-            if (result != 0) {
-                propertyColorEditMode[i] = !wasEditing;
-            }
-
-            if (propertyColorEditMode[i] && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(GetMousePosition(), fieldBounds)) {
-                propertyColorEditMode[i] = false;
-            }
-
-            channels[i] = std::clamp(channels[i], 0, 255);
-        }
-
-        color.r = static_cast<unsigned char>(channels[0]);
-
-        color.g = static_cast<unsigned char>(channels[1]);
-
-        color.b = static_cast<unsigned char>(channels[2]);
-
-        color.a = static_cast<unsigned char>(channels[3]);
-
-        y += editorControlHeight + 10.0f;
-    }
-
-
-
     bool isPointerOverEditorUi()
     {
         return CheckCollisionPointRec(GetMousePosition(), getEditorDockBounds());
     }
 
-    // Draws the space for the panel
     static bool drawPanelFrame(Rectangle bounds, const char* title, bool open)
     {
         using namespace UiStyle;
 
         const float toggleWidth = 22.0f;
-        const float collapsedWidth = 140.0f; // enough for a short title + toggle
+        const float collapsedWidth = 140.0f;
 
         Rectangle headerBounds = bounds;
         if (!open)
         {
             headerBounds.width = collapsedWidth;
-            headerBounds.x = bounds.x + bounds.width - collapsedWidth; // hug the right edge
+            headerBounds.x = bounds.x + bounds.width - collapsedWidth;
         }
 
         const Color background = GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR));
@@ -524,10 +368,7 @@ namespace
         Rectangle panel = getWorkspacePanelBounds();
 
         if (drawPanelFrame(panel, "Workspace", freeDrawState.workspacePanelOpen))
-        {
-
-                freeDrawState.workspacePanelOpen = !freeDrawState.workspacePanelOpen;
-        }
+            freeDrawState.workspacePanelOpen = !freeDrawState.workspacePanelOpen;
 
         if (!freeDrawState.workspacePanelOpen)
         {
@@ -548,7 +389,6 @@ namespace
         GuiScrollPanel(scrollBounds, NULL, content, &workspacePanelScroll, &panelView);
 
         BeginScissorMode(panelView.x, panelView.y, panelView.width, panelView.height);
-
 
         float y = scrollBounds.y + workspacePanelScroll.y + 4.0f;
 
@@ -604,10 +444,7 @@ namespace
 
         Rectangle panel = getCameraPanelBounds();
         if (drawPanelFrame(panel, "Camera", freeDrawState.cameraPanelOpen))
-        {
-
-                freeDrawState.cameraPanelOpen = !freeDrawState.cameraPanelOpen;
-        }
+            freeDrawState.cameraPanelOpen = !freeDrawState.cameraPanelOpen;
 
         if (!freeDrawState.cameraPanelOpen)
         {
@@ -621,7 +458,6 @@ namespace
 
         float pinnedY = panel.y + 39.0f;
 
-        // --- Pinned: projection label + view dropdown ---
         DrawTextEx(GuiGetFont(), TextFormat("Projection: %s", getEditableCamera().getCameraProjection()),
             { contentX, pinnedY + 5.0f }, fontSize, spacing, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
         pinnedY += 24.0f;
@@ -632,14 +468,12 @@ namespace
         const char* viewOptions = "Free;Front;Top;Left;Right";
         static int activeViewIndex = static_cast<int>(freeDrawState.currentViewIndex);
 
-        // Keep the static synced if currentViewIndex changed elsewhere (e.g. re-entering the scene resets it in freeDrawInit, but this static only initializes once ever).
         if (!freeDrawState.viewDropdownOpen && activeViewIndex != static_cast<int>(freeDrawState.currentViewIndex))
             activeViewIndex = static_cast<int>(freeDrawState.currentViewIndex);
 
         if (GuiDropdownBox(viewRect, viewOptions, &activeViewIndex, freeDrawState.viewDropdownOpen))
             freeDrawState.viewDropdownOpen = !freeDrawState.viewDropdownOpen;
 
-        // Close on outside click, but don't close on a click that's actually landing in the open list itself (which renders just below viewRect).
         if (freeDrawState.viewDropdownOpen && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
             !CheckCollisionPointRec(GetMousePosition(), viewRect))
         {
@@ -660,18 +494,16 @@ namespace
 
         pinnedY += controlHeight + 12.0f;
 
-        // Don't draw anything under an open dropdown list — same guard pattern as the material dropdown in drawPropertiesPanel.
         if (freeDrawState.viewDropdownOpen)
         {
             if (!interactive) GuiEnable();
             return;
         }
 
-        // --- Scrollable: camera settings + split screen toggle ---
         Rectangle scrollBounds = { panel.x, pinnedY, panel.width, panel.y + panel.height - pinnedY };
-        if (scrollBounds.height < 20.0f) scrollBounds.height = 20.0f; // never let it invert
+        if (scrollBounds.height < 20.0f) scrollBounds.height = 20.0f;
 
-        const float fieldBlockHeight = 44.0f; // label + box + gap, per field
+        const float fieldBlockHeight = 44.0f;
         const float contentHeight = 20.0f + fieldBlockHeight * CAMERA_PROPERTY_FIELD_COUNT + 30.0f + controlHeight + 20.0f;
 
         Rectangle content = { 0, 0, scrollBounds.width - 16.0f, contentHeight };
@@ -682,19 +514,15 @@ namespace
 
         float y = scrollBounds.y + cameraPanelScroll.y + 8.0f;
         float fx = contentX;
-        float fw = contentWidth - 16.0f; // leave room for the scrollbar
+        float fw = contentWidth - 16.0f;
 
         drawSectionLabel(fx, y, "Camera Settings");
 
-        cameraController* cam;
-
-        struct { const char* label; float* value; float minimum; float maximum; int index; } 
+        struct { const char* label; float* value; float minimum; float maximum; int index; }
         camFields[] = {
             { "FOV", &getEditableCamera().getFovy(), 5.0f, 120.0f, CAMERA_PROPERTY_FOV },
             { "Move Speed",  &getEditableCamera().getWalkSpeed(),        0.01f,  1000.0f,    CAMERA_PROPERTY_MOVE_SPEED},
             { "Sensitivity", &getEditableCamera().getMouseSensitivity(), 0.001f,   10.0f,    CAMERA_PROPERTY_SENSITIVITY},
-            //{ "Near",        &getEditableCamera().getNearPlane(),        0.001f,  100.0f,    CAMERA_PROPERTY_NEAR},
-            //{ "Far",         &getEditableCamera().farPlane,         1.0f,  100000.0f,   CAMERA_PROPERTY_FAR },
         };
         bool result = false;
         for (auto& f : camFields)
@@ -706,15 +534,15 @@ namespace
             y += controlHeight + 12.0f;
         }
         if (result) getEditableCamera().syncCamera();
-        
+
         y += 8.0f;
         drawSectionDivider(fx, y, fw);
         drawSectionLabel(fx, y, "Display");
 
         Rectangle splitBtn = { fx, y, fw, controlHeight };
         bool splitActive = freeDrawState.splitScreenEnabled;
-        GuiToggle(splitBtn, splitActive ? "Split Screen: On" : "Split Screen: Off", & splitActive);
-        
+        GuiToggle(splitBtn, splitActive ? "Split Screen: On" : "Split Screen: Off", &splitActive);
+
         freeDrawState.splitScreenEnabled = splitActive;
 
         if (splitActive && freeDrawState.activeViews.size() == 1)
@@ -736,13 +564,14 @@ namespace
         }
         else if (!splitActive && freeDrawState.activeViews.size() > 1)
         {
+            // Release each discarded slot's render target before dropping it —
+            // vector::resize won't do this for us since RenderTexture2D has no destructor.
             for (size_t i = 1; i < freeDrawState.activeViews.size(); ++i)
                 freeDrawState.activeViews[i].releaseTarget();
 
             freeDrawState.activeViews.resize(1);
         }
 
-        
         y += controlHeight + 12.0f;
 
         EndScissorMode();
@@ -750,7 +579,6 @@ namespace
         if (!interactive) GuiEnable();
     }
 
-    // include light object selection later on
     void drawPropertiesPanel(bool interactive)
     {
         if (!interactive) GuiDisable();
@@ -758,10 +586,7 @@ namespace
 
         Rectangle panel = getPropertiesPanelBounds();
         if (drawPanelFrame(panel, "Properties", freeDrawState.propertiesPanelOpen))
-        {
-
-                freeDrawState.propertiesPanelOpen = !freeDrawState.propertiesPanelOpen;
-        }
+            freeDrawState.propertiesPanelOpen = !freeDrawState.propertiesPanelOpen;
 
         if (!freeDrawState.propertiesPanelOpen)
         {
@@ -797,7 +622,6 @@ namespace
         DrawTextEx(GuiGetFont(), TextFormat("%s %d", selected->getObjectTypeString(), selected->getId()), { contentX, y }, fontSize + 2.0f, spacing, UiStyle::kAccent);
         y += 25.0f;
 
-        // --- Pinned: material dropdown (kept outside the scroll so its open list is never clipped) ---
         DrawTextEx(GuiGetFont(), "Material", { contentX, y + 5.0f }, fontSize, spacing, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
         int materialIndex = selected->getMaterialType();
@@ -816,11 +640,10 @@ namespace
 
         if (propertyMaterialDropdownOpen)
         {
-            if (!interactive) GuiEnable();  // <- fixes the stuck-disabled bug from before
+            if (!interactive) GuiEnable();
             return;
         }
 
-        // --- Scrollable: Position / Rotation / Scale ---
         Rectangle scrollBounds = { panel.x, y, panel.width, panel.y + panel.height - y - (controlHeight + 20.0f) };
 
         const float vec3BlockHeight = 19.0f + editorControlHeight + 10.0f + UiStyle::kDividerMargin * 2.0f + 1.0f;
@@ -856,7 +679,6 @@ namespace
 
         EndScissorMode();
 
-        // --- Pinned: deselect button ---
         Rectangle deselectButton = { contentX, panel.y + panel.height - editorControlHeight - 10.0f, 110.0f, editorControlHeight };
         if (GuiButton(deselectButton, "Deselect"))
         {
@@ -870,14 +692,14 @@ namespace
 }
 
 void freeDrawInit() {
-	TraceLog(LOG_INFO, "Initializing Free Draw Mode Scene");
+    TraceLog(LOG_INFO, "Initializing Free Draw Mode Scene");
     TraceLog(LOG_INFO, "%d", static_cast<int>(currentScene));
 
-	if (freeDrawState.initiliased) return; // Prevent reinitialization if already initialized
-    InitTransformGizmo(); // Initialize the transform gizmo, only needs to be called once
+    if (freeDrawState.initiliased) return;
+    InitTransformGizmo();
     freeDrawState.drawArea = { 200,140,220,44 };
-	freeDrawState.initiliased = true;
-	freeDrawState.mouseButtonPressed = false;
+    freeDrawState.initiliased = true;
+    freeDrawState.mouseButtonPressed = false;
     freeDrawState.currentViewIndex = cameraView::Free;
     freeDrawState.lastViewIndex = cameraView::Free;
     freeDrawState.viewDropdownOpen = false;
@@ -891,17 +713,28 @@ void freeDrawInit() {
     freeDrawState.activeViews.push_back(mainSlot);
 
     initialiseEnvironment();
-
 }
 
 void freeDrawUpdate() {
 
-    if (!freeDrawState.initiliased) return; // Prevent update if not initialized
+    if (!freeDrawState.initiliased) return;
 
-    // Compute once, share across click-ray and camera-update logic below.
+    // Computed once, shared by both the click-ray and camera-update logic below.
     std::vector<Rectangle> bounds = computeViewportBounds(static_cast<int>(freeDrawState.activeViews.size()));
 
-    bool usingGizmo = updateObjectTransformGizmo(getEditableCamera().getCamera());
+    // Gizmo update needs the viewport of the editable/main slot — find it
+    // rather than assuming index 0, in case slot ordering ever changes.
+    int editableIndex = 0;
+    for (size_t i = 0; i < freeDrawState.activeViews.size(); ++i)
+    {
+        if (freeDrawState.activeViews[i].editable) { editableIndex = static_cast<int>(i); break; }
+    }
+
+    bool usingGizmo = updateObjectTransformGizmo(
+        freeDrawState.activeViews[editableIndex].camera.getCamera(),
+        bounds[editableIndex]
+    );
+
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
         viewportClickStart = GetMousePosition();
@@ -915,21 +748,17 @@ void freeDrawUpdate() {
         viewportClickCandidate = false;
     }
 
+
+
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
         if (viewportClickCandidate && !isPointerOverEditorUi() &&
             !freeDrawState.mouseButtonPressed)
         {
-            // Find which viewport the mouse is actually over — in split screen this
-            // isn't necessarily slot 0, and the ray math is wrong if we assume it is.
             Vector2 mouse = GetMousePosition();
             int hitIndex = -1;
             for (size_t i = 0; i < bounds.size(); ++i)
             {
-                if (CheckCollisionPointRec(mouse, bounds[i]))
-                {
-                    hitIndex = static_cast<int>(i);
-                    break;
-                }
+                if (CheckCollisionPointRec(mouse, bounds[i])) { hitIndex = static_cast<int>(i); break; }
             }
 
             if (hitIndex != -1)
@@ -991,35 +820,28 @@ void freeDrawDraw() {
         ViewportSlot& slot = freeDrawState.activeViews[i];
         Rectangle vb = viewBounds[i];
 
-        // Cheap no-op most frames — only reallocates when this slot's pixel size
-        // actually changed (window resize, split-screen toggle, layout change).
+        // Cheap no-op most frames — reallocates only when this slot's pixel
+        // size actually changed (window resize, split-screen toggle).
         slot.ensureTarget(static_cast<int>(vb.width), static_cast<int>(vb.height));
 
         DrawCameraScene(slot.camera.getCamera(), vb, slot.target);
     }
 
-    // Top-right options (gear) button to open Options menu
     const float iconSize = 32.0f;
     Rectangle btnOptionsIcon = { (float)GetScreenWidth() - iconSize - 10.0f, 10.0f, iconSize, iconSize };
-    // Use a GuiButton for click detection, draw a gear-like icon on top to match rayGUI style
     if (GuiButton(btnOptionsIcon, "")) {
         sceneManagerChangeScene(sceneId::SCENE_OPTIONS);
     }
     GuiDrawIcon(ICON_GEAR_BIG, btnOptionsIcon.x, btnOptionsIcon.y, 2, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
-    //topBar(currentResIndex, freeDrawState.dropdownEditmode);
-
     if ((IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && !isPointerOverEditorUi()) || freeDrawState.mouseButtonPressed) {
-        contextMenu(freeDrawState.mouseButtonPressed, getEditableCamera().getCamera()); // under InputHandler.cpp
+        contextMenu(freeDrawState.mouseButtonPressed, getEditableCamera().getCamera());
     }
 
-    // Properties tab � middle right
     drawPropertiesPanel(CheckCollisionPointRec(GetMousePosition(), getPropertiesPanelBounds()));
     drawWorkspacePanel(CheckCollisionPointRec(GetMousePosition(), getWorkspacePanelBounds()));
     drawCameraPanel(CheckCollisionPointRec(GetMousePosition(), getCameraPanelBounds()));
 
-
-    // Draw camera controller settings overlay for user reference
     if (freeDrawState.helpTip)
     {
         drawCameraControllerSettings();
@@ -1032,6 +854,7 @@ void freeDrawUnload() {
 
     for (auto& slot : freeDrawState.activeViews)
         slot.releaseTarget();
+
     // Models, material textures, and lighting are application-wide resources
     // initialized once by sceneManagerInit(). Destroying them here made a
     // second visit to Learn use invalid GPU resources and crash.
