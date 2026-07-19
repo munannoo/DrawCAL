@@ -36,7 +36,7 @@ bool shape::loadMesh()
 }
 
 void shape::drawSelectionWireframe(Color color) const
-{git 
+{
 	if (!getSelected()) return;
 	if (!R3D_IsMeshDataValid(meshData)) return;
 	if (meshData.vertexCount < 3) return;
