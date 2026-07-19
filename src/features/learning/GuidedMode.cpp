@@ -281,10 +281,29 @@ void GuidedModeDraw()
     DrawThemeText(title, (GetScreenWidth() - titleSize.x) / 2.0f, 80.0f, 40.0f,
                   GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
-    DrawRoundedButton(cubeBtn, Color{52, 152, 219, 255}, "Cube");
-    DrawRoundedButton(sphereBtn, Color{46, 204, 113, 255}, "Sphere");
-    DrawRoundedButton(cylinderBtn, Color{230, 126, 34, 255}, "Cylinder");
-    DrawRoundedButton(importBtn, Color{155, 89, 182, 255}, "Import");
+    DrawRoundedButton(
+    cubeBtn,
+    Color{52,152,219,255},
+    "Cube",
+    ICON_CUBE);
+
+DrawRoundedButton(
+    sphereBtn,
+    Color{46,204,113,255},
+    "Sphere",
+    ICON_SPHERE);
+
+DrawRoundedButton(
+    cylinderBtn,
+    Color{230,126,34,255},
+    "Cylinder",
+    ICON_CYLINDER);
+
+DrawRoundedButton(
+    importBtn,
+    Color{155,89,182,255},
+    "Import",
+    ICON_IMPORT);
 }
 
 void GuidedModeUnload()
