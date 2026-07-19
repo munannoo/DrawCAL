@@ -138,24 +138,64 @@ static void DrawImportIcon(Rectangle r)
 //---------------------------------------------------------
 // Draw a custom rounded button
 //---------------------------------------------------------
-void DrawRoundedButton(Rectangle bounds, Color color, const char* text)
+void DrawRoundedButton(Rectangle bounds,
+                       Color color,
+                       const char* text,
+                       GuidedButtonIcon icon)
 {
     bool hovered = CheckCollisionPointRec(GetMousePosition(), bounds);
 
-    Color drawColor = hovered ? Fade(color, 0.8f) : color;
+    Rectangle drawBounds = bounds;
 
-    DrawRectangleRounded(bounds, 0.20f, 8, drawColor);
+    if (hovered)
+    {
+        drawBounds.x -= 2;
+        drawBounds.y -= 2;
+        drawBounds.width += 4;
+        drawBounds.height += 4;
+    }
 
-    // Optional border
-    DrawRectangleRoundedLines(bounds, 0.20f, 8,
+    Color drawColor = hovered
+                        ? Fade(color, 0.85f)
+                        : color;
+
+    DrawRectangleRounded(drawBounds, 0.20f, 8, drawColor);
+
+    DrawRectangleRoundedLines(
+        drawBounds,
+        0.20f,
+        8,
         GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL)));
 
-    int fontSize = 22;
+    switch (icon)
+    {
+        case ICON_CUBE:
+            DrawCubeIcon(drawBounds);
+            break;
+
+        case ICON_SPHERE:
+            DrawSphereIcon(drawBounds);
+            break;
+
+        case ICON_CYLINDER:
+            DrawCylinderIcon(drawBounds);
+            break;
+
+        case ICON_IMPORT:
+            DrawImportIcon(drawBounds);
+            break;
+    }
+
+    const int fontSize = 22;
 
     Vector2 textSize = MeasureThemeText(text, (float)fontSize);
-    DrawThemeText(text, bounds.x + (bounds.width - textSize.x) / 2.0f,
-                  bounds.y + bounds.height - 38.0f, (float)fontSize,
-                  GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+
+    DrawThemeText(
+        text,
+        drawBounds.x + (drawBounds.width - textSize.x) / 2,
+        drawBounds.y + drawBounds.height - 38,
+        (float)fontSize,
+        GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 }
 
 void GuidedModeInit()
