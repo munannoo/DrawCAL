@@ -143,7 +143,7 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
                 }
                 else if (focused == Menu_DeleteObject)
                 {
-                    deleteobj();
+                    deleteObjects();
                     state = STATE_BASE;
                     mainActive = subActive = -1;
                     mouseButtonPressed = false;

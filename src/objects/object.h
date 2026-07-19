@@ -18,54 +18,20 @@ enum class ObjectType { NONE = -1, CUBE, SPHERE, CYLINDER, CUSTOM };
 
 
 void initModels();
-void DrawSceneForShadowMap();
-void UploadSceneToRayTracer();
-//void SyncObjectLightsToScene();
-//void cube(const Vector3 pos, Color color = GRAY);
-void sphere(const Vector3 pos, Color color = GRAY);
-void cylinder(const Vector3 pos, Color color = GRAY);
-void renderCube();
-void renderSphere();
-void renderCylinder();
-
 // Unload the models, required because the objects are defined static, and 
 void unloadModels();
 
-void leftclick(Ray ray);
+
+void deleteObjects();
+
 bool updateObjectTransformGizmo(Camera3D camera);
-// obsolete ig, but idk
-// void drawObjectTransformGizmo();
-//// Query selected objects
-//// Returns true and fills out when a selected object is found (first encountered)
-//// outType: 1=cube,2=sphere,3=cylinder
 
-// Returns the total number of selected objects
-int getTotalSelectedCount();
 void drawObjectTransformGizmo(Camera3D camera);
-void lightSphere(const Vector3 pos, Color color);
-void deleteobj();
-// Returns the actual selected object stored in Cu, Sp, or cy.
-// Do not delete or store this pointer permanently.
-ObjectInstance* getFirstSelectedMutable(
-	int* outType = nullptr,
-	int* outIndex = nullptr
-);
 
-// Scene hierarchy access used by editor-style UI (1=cube, 2=sphere, 3=cylinder).
-int getObjectCount(ObjectType objectType);
-ObjectInstance* getObjectMutable(ObjectType objectType, int objectIndex);
-bool selectObject(ObjectType objectType, int objectIndex, bool additive = false);
-
-void deselectAllObjects();
 //load and save functions, defined in object.cpp but main logic is present in saveNload.cpp
 void load();
 void save();
 
-// The object has no colour by default, if you wish to set colour for the object, you can do so by changing the material albedo
-// Implement later:     material.albedo.color = newColor;
-
-void renderAllObjects();
-void renderLightObjects();
 
 class shape
 {
@@ -79,7 +45,7 @@ protected:
 	// GPU-side renderable mesh
 	R3D_Mesh mesh;
 
-	ObjectType objectType = ObjectType::NONE;
+	ObjectType objectType;
 	// Mesh primitive type
 	R3D_PrimitiveType primitiveType = R3D_PRIMITIVE_TRIANGLES;
 
@@ -101,6 +67,10 @@ public:
 	virtual ~shape();
 	BoundingBox getWorldBoundingBox() const;
 	// Transform
+
+	Transform& getTransform() {
+		return transform;
+	}
 	const Transform& getTransform() const {
 		return transform;
 	}
@@ -131,7 +101,15 @@ public:
 	void setObjectType(ObjectType newType) {
 		objectType = newType;
 	}
-
+	const char* getObjectTypeString() const {
+		switch (objectType) {
+		case ObjectType::CUBE: return "Cube";
+		case ObjectType::SPHERE: return "Sphere";
+		case ObjectType::CYLINDER: return "Cylinder";
+		case ObjectType::CUSTOM: return "Custom";
+		default: return "Unknown";
+		}
+	}
 	// Just makes use of MatrixCompose to get the Transform matrix from the transform struct
 	Matrix getMatrix() const {
 		return MatrixCompose(transform.translation, transform.rotation, transform.scale);
@@ -210,6 +188,8 @@ private:
 	float height;
 	float length;
 	int resX, resY, resZ;
+
+	ObjectType objectType;
 public:
 	static int cubeCount;
 
@@ -236,9 +216,14 @@ public:
 
 };
 
+void selectObjectByRay(Ray ray);
+void selectObjects(shape* object, bool);
 
-
+// All object arrays
 extern std::vector<std::unique_ptr<shape>> objects;
+// Selected objects array, stores pointers to the selected objects in the scene
 extern std::vector<shape*> selectedObjects;
+// Active object pointer, points to the last selected object
+// use for entering edit mode, expanding split screen for one specific object, etc.
 extern shape* activeObject;
 #endif // object_h

@@ -1,12 +1,10 @@
 #include "object.h"
 #include <cstring>
 
-// Static default material instance used by shapes that haven't been assigned a material
-static R3D_Material s_defaultMaterial = { 0 };
-
 std::vector<std::unique_ptr<shape>> objects;
 std::vector<shape*> selectedObjects;
-extern shape* activeObject;
+shape* activeObject;
+
 // Class shape method definitions
 
 static void updateSelectedObjects();
@@ -35,7 +33,7 @@ bool shape::loadMesh()
 
 	// Use the actual R3D mesh validity check if one exists.
 	meshDirty = false;
-	return true;
+	return R3D_IsMeshValid(mesh);
 }
 
 // Update this later
@@ -58,8 +56,6 @@ void shape::applyMaterial(MaterialType type)
 	R3D_Material* newMaterial = GetMaterial(type);
 	TraceLog(LOG_INFO, "Old material: %p", (void*)material);
 	TraceLog(LOG_INFO, "New material: %p", (void*)newMaterial);
-
-	materialType = type;
 
 	if (newMaterial == nullptr) return;
 
@@ -223,7 +219,9 @@ cube::cube(
 	: shape(),
 	width(width),height(height),length(length), 
 	resX(resX), resY(resY), resZ(resZ)
+
 {
+	setObjectType(ObjectType::CUBE);
 	// Set object transform
 	transform.translation = position;
 	transform.rotation = rotation;
@@ -244,13 +242,12 @@ cube::cube(
 
 
 void cube::drawShape() {
-	if (R3D_IsMeshValid(mesh))
+	bool valid = R3D_IsMeshValid(mesh);
+	if (!valid) TraceLog(LOG_WARNING, "cube %d: mesh invalid, skipping draw", getId());
+	if (valid)
 	{
 		R3D_DrawMeshPro(mesh, *getMaterial(), MatrixCompose(transform.translation, transform.rotation, transform.scale));
-		if (getSelected())
-		{
-			drawSelectionWireframe(RED);
-		}
+		if (getSelected()) drawSelectionWireframe(RED);
 	}
 }
 
@@ -298,313 +295,15 @@ void save() {
 	saveScene();
 }
 
-// Manages triangles for lighitng issues
-static Mesh GenTexturedCylinder(float radius, float height, int slices)
-{
-	Mesh mesh = { 0 };
-
-	if (slices < 3) slices = 3;
-
-	float halfHeight = height * 0.5f;
-
-	int sideVertexCount = (slices + 1) * 2;
-	int topVertexCount = slices + 2;
-	int bottomVertexCount = slices + 2;
-	int totalVertexCount = sideVertexCount + topVertexCount + bottomVertexCount;
-
-	int sideTriangleCount = slices * 2;
-	int topTriangleCount = slices;
-	int bottomTriangleCount = slices;
-
-	int totalTriangleCount =
-		sideTriangleCount + topTriangleCount + bottomTriangleCount;
-
-	mesh.vertexCount = totalVertexCount;
-	mesh.triangleCount = totalTriangleCount;
-
-	mesh.vertices = (float*)MemAlloc(totalVertexCount * 3 * sizeof(float));
-	mesh.normals = (float*)MemAlloc(totalVertexCount * 3 * sizeof(float));
-	mesh.texcoords = (float*)MemAlloc(totalVertexCount * 2 * sizeof(float));
-	mesh.indices = (unsigned short*)MemAlloc(totalTriangleCount * 3 * sizeof(unsigned short));
-
-	int v = 0;
-
-	auto SetVertex = [&](int index, Vector3 position, Vector3 normal, Vector2 uv)
-		{
-			mesh.vertices[index * 3 + 0] = position.x;
-			mesh.vertices[index * 3 + 1] = position.y;
-			mesh.vertices[index * 3 + 2] = position.z;
-
-			mesh.normals[index * 3 + 0] = normal.x;
-			mesh.normals[index * 3 + 1] = normal.y;
-			mesh.normals[index * 3 + 2] = normal.z;
-
-			mesh.texcoords[index * 2 + 0] = uv.x;
-			mesh.texcoords[index * 2 + 1] = uv.y;
-		};
-
-	for (int i = 0; i <= slices; i++)
-	{
-		float t = (float)i / (float)slices;
-		float angle = t * 2.0f * PI;
-
-		float x = cosf(angle) * radius;
-		float z = sinf(angle) * radius;
-
-		Vector3 normal = Vector3Normalize({ x, 0.0f, z });
-
-		SetVertex(
-			v++,
-			{ x, -halfHeight, z },
-			normal,
-			{ t, 1.0f }
-		);
-
-		SetVertex(
-			v++,
-			{ x, halfHeight, z },
-			normal,
-			{ t, 0.0f }
-		);
-	}
-
-	int topCenterIndex = v;
-
-	SetVertex(
-		v++,
-		{ 0.0f, halfHeight, 0.0f },
-		{ 0.0f, 1.0f, 0.0f },
-		{ 0.5f, 0.5f }
-	);
-
-	int topRingStart = v;
-
-	for (int i = 0; i <= slices; i++)
-	{
-		float t = (float)i / (float)slices;
-		float angle = t * 2.0f * PI;
-
-		float x = cosf(angle) * radius;
-		float z = sinf(angle) * radius;
-
-		float u = 0.5f + cosf(angle) * 0.5f;
-		float vv = 0.5f + sinf(angle) * 0.5f;
-
-		SetVertex(
-			v++,
-			{ x, halfHeight, z },
-			{ 0.0f, 1.0f, 0.0f },
-			{ u, vv }
-		);
-	}
-
-	int bottomCenterIndex = v;
-
-	SetVertex(
-		v++,
-		{ 0.0f, -halfHeight, 0.0f },
-		{ 0.0f, -1.0f, 0.0f },
-		{ 0.5f, 0.5f }
-	);
-
-	int bottomRingStart = v;
-
-	for (int i = 0; i <= slices; i++)
-	{
-		float t = (float)i / (float)slices;
-		float angle = t * 2.0f * PI;
-
-		float x = cosf(angle) * radius;
-		float z = sinf(angle) * radius;
-
-		float u = 0.5f + cosf(angle) * 0.5f;
-		float vv = 0.5f - sinf(angle) * 0.5f;
-
-		SetVertex(
-			v++,
-			{ x, -halfHeight, z },
-			{ 0.0f, -1.0f, 0.0f },
-			{ u, vv }
-		);
-	}
-
-	int idx = 0;
-
-	auto AddTriangle = [&](unsigned short a, unsigned short b, unsigned short c)
-		{
-			mesh.indices[idx++] = a;
-			mesh.indices[idx++] = b;
-			mesh.indices[idx++] = c;
-		};
-
-	for (int i = 0; i < slices; i++)
-	{
-		unsigned short bottom0 = (unsigned short)(i * 2);
-		unsigned short top0 = (unsigned short)(i * 2 + 1);
-		unsigned short bottom1 = (unsigned short)((i + 1) * 2);
-		unsigned short top1 = (unsigned short)((i + 1) * 2 + 1);
-
-		AddTriangle(bottom0, top0, top1);
-		AddTriangle(bottom0, top1, bottom1);
-	}
-
-	for (int i = 0; i < slices; i++)
-	{
-		unsigned short ring0 = (unsigned short)(topRingStart + i);
-		unsigned short ring1 = (unsigned short)(topRingStart + i + 1);
-
-		AddTriangle(
-			(unsigned short)topCenterIndex,
-			ring1,
-			ring0
-		);
-	}
-
-	for (int i = 0; i < slices; i++)
-	{
-		unsigned short ring0 = (unsigned short)(bottomRingStart + i);
-		unsigned short ring1 = (unsigned short)(bottomRingStart + i + 1);
-
-		AddTriangle(
-			(unsigned short)bottomCenterIndex,
-			ring0,
-			ring1
-		);
-	}
-
-	return mesh;
-}
-
 void initModels()
 {
 	//cube cube1;
 	objects.push_back(std::make_unique<cube>());
 	//InitLighting();
 
-	Mesh cubeMesh = GenMeshCube(2.0f, 2.0f, 2.0f);
-	GenMeshTangents(&cubeMesh);
-	cubeModel = LoadModelFromMesh(cubeMesh);
-	Cubebounds = GetModelBoundingBox(cubeModel);
-
-	Mesh sphereMesh = GenMeshSphere(1.0f, 32, 32);
-	GenMeshTangents(&sphereMesh);
-	sphereModel = LoadModelFromMesh(sphereMesh);
-	Spherebounds = GetModelBoundingBox(sphereModel);
-
-	Mesh cylinderMesh = GenTexturedCylinder(1.0f, 2.0f, 64);
-	GenMeshTangents(&cylinderMesh);
-	UploadMesh(&cylinderMesh, false);
-
-	cylinderModel = LoadModelFromMesh(cylinderMesh);
-	Cylinderbounds = GetModelBoundingBox(cylinderModel);
 	LoadPBRTextures();
 
-	//ApplyLightingShader(cubeModel);
-	//ApplyLightingShader(sphereModel);
-	//ApplyLightingShader(cylinderModel);
-
 	EnsureSceneVertices();
-}
-void UploadSceneToRayTracer()
-{
-	// Legacy compatibility no-op. Ray tracing was removed from the active
-	// rendering path and replaced with rPBR-style PBR lighting.
-}
-ObjectInstance* getFirstSelectedMutable(int* outType, int* outIndex)
-{
-	for (int i = 0; i < c; i++)
-	{
-		if (Cu[i].isSelected)
-		{
-			if (outType) *outType = 1;
-			if (outIndex) *outIndex = i;
-
-			return &Cu[i];
-		}
-	}
-
-	for (int i = 0; i < s; i++)
-	{
-		if (Sp[i].isSelected)
-		{
-			if (outType) *outType = 2;
-			if (outIndex) *outIndex = i;
-
-			return &Sp[i];
-		}
-	}
-
-	for (int i = 0; i < y; i++)
-	{
-		if (cy[i].isSelected)
-		{
-			if (outType) *outType = 3;
-			if (outIndex) *outIndex = i;
-
-			return &cy[i];
-		}
-	}
-
-	if (outType) *outType = 0;
-	if (outIndex) *outIndex = -1;
-
-	return nullptr;
-}
-
-bool getFirstSelected(
-	ObjectInstance* out,
-	int* outType,
-	int* outIndex
-)
-{
-	ObjectInstance* selected =
-		getFirstSelectedMutable(outType, outIndex);
-
-	if (selected == nullptr)
-	{
-		return false;
-	}
-
-	if (out)
-	{
-		*out = *selected;
-	}
-
-	return true;
-}
-
-void deselectAllObjects()
-{
-	for (int i = 0; i < c; i++)
-	{
-		Cu[i].isSelected = false;
-	}
-
-	for (int i = 0; i < s; i++)
-	{
-		Sp[i].isSelected = false;
-	}
-
-	for (int i = 0; i < y; i++)
-	{
-		cy[i].isSelected = false;
-	}
-
-	totalSelectedCount = 0;
-	selectedType = ObjectType::NONE;
-}
-
-int getTotalSelectedCount() {
-	int total = 0;
-	for (int i = 0; i < c; i++) if (Cu[i].isSelected) total++;
-	for (int i = 0; i < s; i++) if (Sp[i].isSelected) total++;
-	for (int i = 0; i < y; i++) if (cy[i].isSelected) total++;
-	return total;
-}
-
-void DrawSceneForShadowMap()
-{
-	// Legacy compatibility no-op. Shadow maps are not used by the rPBR path.
 }
 
 // DefaultVertices -> gives local position of the shapes
@@ -778,227 +477,7 @@ static void DrawSelectedVertexHandles(Camera3D camera) {
 	}
 }
 
-//void cube(const Vector3 pos,Color color) {
-//    if (c < 100) {
-//        Cu[c].position = pos;
-//        Cu[c].rotation = { 0.0f, 0.0f, 0.0f };
-//        Cu[c].scale = { 1.0f, 1.0f, 1.0f };
-//        Cu[c].color = color;
-//        Cu[c].isSelected = false;
-//        Cu[c].isLight = false;
-//        Cu[c].lightIndex = -1;
-//        Cu[c].lightIntensity = 0.0f;
-//        Cu[c].lightRadius = 0.0f;
-//        Cu[c].material = MATERIAL_WOOD;
-//        AssignDefaultVertices(Cu[c], CUBE);
-//        c++;
-//    }
-//}
-//
-//void sphere(const Vector3 pos,Color color){
-//    if(s<100){
-//        Sp[s].position = pos;
-//        Sp[s].rotation = Vector3{0.0f, 0.0f, 0.0f};
-//        Sp[s].scale = Vector3{1.0f, 1.0f, 1.0f};
-//        Sp[s].color = color;
-//        Sp[s].isSelected = false;
-//        Sp[s].isLight = false;
-//        Sp[s].lightIndex = -1;
-//        Sp[s].lightIntensity = 0.0f;
-//        Sp[s].lightRadius = 0.0f;
-//        Sp[s].material = MATERIAL_WOOD;
-//        AssignDefaultVertices(Sp[s], SPHERE);
-//        s++;
-//    }
-//}
-//
-//void cylinder(const Vector3 pos,Color color){
-//    if(y<100){
-//        cy[y].position = pos;
-//        cy[y].rotation = Vector3{0.0f, 0.0f, 0.0f};
-//        cy[y].scale = Vector3{1.0f, 1.0f, 1.0f};
-//        cy[y].color = color;
-//        cy[y].isSelected = false;
-//        cy[y].isLight = false;
-//        cy[y].lightIndex = -1;
-//        cy[y].lightIntensity = 0.0f;
-//        cy[y].lightRadius = 0.0f;
-//        cy[y].material = MATERIAL_WOOD;
-//        AssignDefaultVertices(cy[y], CYLINDER);
-//        y++;
-//    }
-//}
 
-//void SyncObjectLightsToScene()
-//{
-//	for (int i = 0; i < s; i++)
-//	{
-//		if (!Sp[i].isLight || Sp[i].lightIndex < 0) continue;
-//
-//		SetSceneLightPosition(Sp[i].lightIndex, Sp[i].position);
-//		SetSceneLightProperties(
-//			Sp[i].lightIndex,
-//			Sp[i].color,
-//			Sp[i].lightIntensity,
-//			Sp[i].lightRadius
-//		);
-//	}
-//}
-
-// render all items
-// render cube
-void renderCube() {
-	for (auto& obj : objects)
-	{
-		obj->drawShape();
-		//TraceLog(LOG_INFO, "%d", static_cast<int>(obj->getMaterialType()));
-	}
-	for (const auto& object : objects)
-	{
-		if (object->getSelected())
-		{
-			object->drawSelectionWireframe(YELLOW);  // or whatever color
-		}
-	}
-	//for (int i = 0; i < c; i++) {
-		//cube[i].drawShape();
-		//Color renderColor = Cu[i].color;
-		//renderColor.a = Cu[i].isSelected ? 128 : 255; // changes transparency when objec tis selected
-		//DrawObjectModel(cubeModel, Cu[i], renderColor);
-	//}
-}
-
-void renderSelectedObjects() {
-	for (const auto& object : objects)
-	{
-		if (object->getSelected())
-		{
-			object->drawSelectionWireframe(YELLOW);  // or whatever color
-		}
-	}
-}
-
-void renderLightObjects() {
-	for (const auto& object : lights)
-	{
-		R3D_DrawLightShape(object->getLight());
-	}
-}
-
-void renderAllObjects() {
-	renderCube();
-	renderSelectedObjects();
-
-	//renderSphere();
-	//renderCylinder();
-}
-//render sphere
-//void renderSphere() {
-//    for (int i = 0; i < s; i++) {
-//
-//        if (Sp[i].isLight && Sp[i].lightIndex >= 0) {
-//            SetSceneLightPosition(Sp[i].lightIndex, Sp[i].position);
-//            SetSceneLightProperties(
-//                Sp[i].lightIndex,
-//                Sp[i].color,
-//                Sp[i].lightIntensity,
-//                Sp[i].lightRadius
-//            );
-//
-//            // Draw light marker as unlit bright sphere
-//            DrawSphere(Sp[i].position, Sp[i].scale.x, Sp[i].color);
-//
-//            if (Sp[i].isSelected) {
-//                DrawSphereWires(Sp[i].position, Sp[i].scale.x * 1.15f, 16, 16, WHITE);
-//            }
-//
-//            continue;
-//        }
-//
-//        Color renderColor = Sp[i].color;
-//        renderColor.a = Sp[i].isSelected ? 128 : 255;
-//
-//        DrawObjectModel(sphereModel, Sp[i], renderColor);
-//    }
-//}
-////render cylinder
-//void renderCylinder() {
-//    for (int i = 0; i < y; i++) {
-//        Color renderColor = cy[i].color;
-//        renderColor.a = cy[i].isSelected ? 128 : 255; // changes transparency when objec tis selected
-//        DrawObjectModel(cylinderModel, cy[i], renderColor);
-//    }
-//}
-
-void leftclick(Ray ray)
-{
-	shape* closestObject = nullptr;
-	float closestDist = FLT_MAX;
-
-	// Find the closest object hit by the ray
-	for (auto& object : objects)
-	{
-		RayCollision collision = GetRayCollisionBox(
-			ray,
-			object->getWorldBoundingBox()
-		);
-
-		if (collision.hit && collision.distance < closestDist)
-		{
-			closestDist = collision.distance;
-			closestObject = object.get();
-		}
-	}
-
-	const bool additiveSelection =
-		IsKeyDown(KEY_LEFT_CONTROL) ||
-		IsKeyDown(KEY_RIGHT_CONTROL);
-
-	// Clear existing selection unless Ctrl is held
-	if (!additiveSelection)
-	{
-		for (auto& object : objects)
-		{
-			object->setSelected(false);
-		}
-	}
-	// Clicked an object
-	if (closestObject != nullptr)
-	{
-		if (additiveSelection)
-		{
-			// Ctrl + click selected object -> deselect it
-			if (closestObject->getSelected()) closestObject->setSelected(!closestObject->getSelected());
-		}
-		else
-		{
-			// Normal click -> this becomes the only selection
-			closestObject->setSelected(true);
-		}
-
-		TraceLog(
-			LOG_INFO,
-			"Clicked object ID: %u",
-			closestObject->getId()
-		);
-	}
-
-	updateSelectedObjects();
-	totalSelectedCount = static_cast<int>(selectedObjects.size());
-}
-
-static void updateSelectedObjects()
-{
-	selectedObjects.clear();
-
-	for (const auto& object : objects)
-	{
-		if (object && object->getSelected())
-		{
-			selectedObjects.push_back(object.get());
-		}
-	}
-} 
 static Matrix GetObjectTransform(ObjectInstance obj)
 {
 	Matrix matScale = MatrixScale(
@@ -1054,86 +533,92 @@ void drawObjectTransformGizmo(Camera3D camera) {
 	);
 	DrawSelectedVertexHandles(camera);
 }
-//
-//void lightSphere(const Vector3 pos, Color color)
-//{
-//	if (s < 100)
-//	{
-//		Vector3 lightPos = pos;
-//		lightPos.y += DEFAULT_LIGHT_HEIGHT;
-//
-//		int lightIndex = CreatePointLight(lightPos);
-//
-//		if (lightIndex == -1) return;
-//
-//		Sp[s].position = lightPos;
-//		Sp[s].rotation = Vector3{ 0.0f, 0.0f, 0.0f };
-//		Sp[s].scale = Vector3{ 0.25f, 0.25f, 0.25f };
-//		Sp[s].color = color;
-//		Sp[s].isSelected = false;
-//
-//		Sp[s].isLight = true;
-//		Sp[s].lightIndex = lightIndex;
-//		Sp[s].lightIntensity = DEFAULT_LIGHT_INTENSITY;
-//		Sp[s].lightRadius = DEFAULT_LIGHT_RADIUS;
-//
-//		SetSceneLightPosition(Sp[s].lightIndex, Sp[s].position);
-//		SetSceneLightProperties(
-//			Sp[s].lightIndex,
-//			Sp[s].color,
-//			Sp[s].lightIntensity,
-//			Sp[s].lightRadius
-//		);
-//
-//		s++;
-//	}
-//}
 
-void deleteobj() {
-	for (int i = 0; i < c; i++) {
-		if (Cu[i].isSelected) {
-			for (int j = i; j < c - 1; j++) {
-				Cu[j] = Cu[j + 1];
-			}
-			c--;
-			i--;
+void selectObjectByRay(Ray ray) {
+	shape* closestObject = nullptr;
+	float closestDist = FLT_MAX;
+
+	// Find the closest object hit by the ray
+	for (auto& object : objects)
+	{
+		RayCollision collision = GetRayCollisionBox(ray, object->getWorldBoundingBox());
+
+		if (collision.hit && collision.distance < closestDist) {
+			closestDist = collision.distance;
+			closestObject = object.get();
 		}
 	}
-	for (int i = 0; i < s; i++) {
-		if (Sp[i].isSelected) {
+	const bool additiveSelection = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
 
-			if (Sp[i].isLight && Sp[i].lightIndex >= 0) {
-				int deletedLightIndex = Sp[i].lightIndex;
-				//DeleteSceneLight(deletedLightIndex);
+	selectObjects(closestObject, additiveSelection);
 
-				// Fix light indices of remaining light spheres
-				for (int k = 0; k < s; k++) {
-					if (Sp[k].isLight && Sp[k].lightIndex > deletedLightIndex) {
-						Sp[k].lightIndex--;
-					}
-				}
-			}
+}
 
-			for (int j = i; j < s - 1; j++) {
-				Sp[j] = Sp[j + 1];
-			}
-
-			s--;
-			i--;
-		}
-	}
-	for (int i = 0; i < y; i++) {
-		if (cy[i].isSelected) {
-			for (int j = i; j < y - 1; j++) {
-				cy[j] = cy[j + 1];
-			}
-			y--;
-			i--;
-		}
+void selectObjects(shape* closestObject, bool additiveSelection)
+{
+	// Clear existing selection unless Ctrl is held
+	if (!additiveSelection)
+	{
+		for (auto& object : objects) object->setSelected(false); 
+		activeObject = nullptr;
 	}
 
+	// Clicked an object
+	if (closestObject != nullptr)
+	{
+		if (additiveSelection)
+		{
+			closestObject->setSelected(!closestObject->getSelected());
+			// Ctrl + click object -> toggle selection
+			if (closestObject->getSelected()) activeObject = closestObject;
+			else if (closestObject == activeObject) activeObject = nullptr;
+		}
+		else
+		{
+			// Normal click -> this becomes the only selection
+			closestObject->setSelected(true);
+			activeObject = closestObject;
+		}
+
+		TraceLog(
+			LOG_INFO,
+			"Clicked object ID: %u",
+			closestObject->getId()
+		);
+	}
+
+	updateSelectedObjects();
+	totalSelectedCount = static_cast<int>(selectedObjects.size());
+}
+
+static void updateSelectedObjects()
+{
+	selectedObjects.clear();
+
+	for (const auto& object : objects)
+	{
+		if (object && object->getSelected())
+		{
+			selectedObjects.push_back(object.get());
+		}
+	}
+} 
+
+void deleteObjects() {
+	objects.erase(
+		// manipulates the object array so that all objects that we want to keep are kept in the beginning and everything else is moved to the end of the array
+		// std::remove_if returns an iterator to the new end of the array (the one which has useful objects), which is then used to erase the unwanted elements
+		std::remove_if(
+			objects.begin(),
+			objects.end(),
+			// [] -> lambda function to check if the object is selected
+			[](const std::unique_ptr<shape>& obj) { return obj->getSelected(); }
+		),
+		objects.end()
+	);
+	selectedObjects.clear();
+	activeObject = nullptr;
 	totalSelectedCount = 0;
-	selectedType = ObjectType::NONE;
 }
 
 // ideally gonna use no models and just mesh
@@ -1142,41 +627,4 @@ void unloadModels(void) {
 	UnloadModel(cubeModel);
 	UnloadModel(sphereModel);
 	UnloadModel(cylinderModel);
-
-}
-
-int getObjectCount(ObjectType objectType)
-{
-	switch (objectType)
-	{
-	case ObjectType::CUBE: return c;
-	case ObjectType::SPHERE: return s;
-	case ObjectType::CYLINDER: return y;
-	default: return 0;
-	}
-}
-
-ObjectInstance* getObjectMutable(ObjectType objectType, int objectIndex)
-{
-	if (objectIndex < 0 || objectIndex >= getObjectCount(objectType)) return nullptr;
-
-	switch (objectType)
-	{
-	case ObjectType::CUBE: return &Cu[objectIndex];
-	case ObjectType::SPHERE: return &Sp[objectIndex];
-	case ObjectType::CYLINDER: return &cy[objectIndex];
-	default: return nullptr;
-	}
-}
-
-bool selectObject(ObjectType objectType, int objectIndex, bool additive)
-{
-	ObjectInstance* object = getObjectMutable(objectType, objectIndex);
-	if (object == nullptr) return false;
-
-	if (!additive) deselectAllObjects();
-	object->isSelected = additive ? !object->isSelected : true;
-	totalSelectedCount = getTotalSelectedCount();
-	selectedType = object->isSelected ? static_cast<ObjectType>(objectType) : ObjectType::NONE;
-	return true;
 }
