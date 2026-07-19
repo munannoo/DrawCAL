@@ -33,10 +33,10 @@ static void OpenWorkspaceWithObject(int objectType)
 }
 enum GuidedButtonIcon
 {
-    ICON_CUBE,
-    ICON_SPHERE,
-    ICON_CYLINDER,
-    ICON_IMPORT
+    BUTTON_ICON_CUBE,
+    BUTTON_ICON_SPHERE,
+    BUTTON_ICON_CYLINDER,
+    BUTTON_ICON_IMPORT
 };
 
 static void DrawCubeIcon(Rectangle r)
@@ -138,10 +138,10 @@ static void DrawImportIcon(Rectangle r)
 //---------------------------------------------------------
 // Draw a custom rounded button
 //---------------------------------------------------------
-void DrawRoundedButton(Rectangle bounds,
-                       Color color,
-                       const char* text,
-                       GuidedButtonIcon icon)
+static void DrawRoundedButton(Rectangle bounds,
+                              Color color,
+                              const char* text,
+                              GuidedButtonIcon icon)
 {
     bool hovered = CheckCollisionPointRec(GetMousePosition(), bounds);
 
@@ -168,23 +168,23 @@ void DrawRoundedButton(Rectangle bounds,
         GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL)));
 
     switch (icon)
-    {
-        case ICON_CUBE:
-            DrawCubeIcon(drawBounds);
-            break;
+{
+    case BUTTON_ICON_CUBE:
+        DrawCubeIcon(drawBounds);
+        break;
 
-        case ICON_SPHERE:
-            DrawSphereIcon(drawBounds);
-            break;
+    case BUTTON_ICON_SPHERE:
+        DrawSphereIcon(drawBounds);
+        break;
 
-        case ICON_CYLINDER:
-            DrawCylinderIcon(drawBounds);
-            break;
+    case BUTTON_ICON_CYLINDER:
+        DrawCylinderIcon(drawBounds);
+        break;
 
-        case ICON_IMPORT:
-            DrawImportIcon(drawBounds);
-            break;
-    }
+    case BUTTON_ICON_IMPORT:
+        DrawImportIcon(drawBounds);
+        break;
+}
 
     const int fontSize = 22;
 
@@ -281,29 +281,25 @@ void GuidedModeDraw()
     DrawThemeText(title, (GetScreenWidth() - titleSize.x) / 2.0f, 80.0f, 40.0f,
                   GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
-    DrawRoundedButton(
-    cubeBtn,
-    Color{52,152,219,255},
-    "Cube",
-    ICON_CUBE);
+    DrawRoundedButton(cubeBtn,
+                  Color{52,152,219,255},
+                  "Cube",
+                  BUTTON_ICON_CUBE);
 
-DrawRoundedButton(
-    sphereBtn,
-    Color{46,204,113,255},
-    "Sphere",
-    ICON_SPHERE);
+    DrawRoundedButton(sphereBtn,
+                  Color{46,204,113,255},
+                  "Sphere",
+                  BUTTON_ICON_SPHERE);
 
-DrawRoundedButton(
-    cylinderBtn,
-    Color{230,126,34,255},
-    "Cylinder",
-    ICON_CYLINDER);
+    DrawRoundedButton(cylinderBtn,
+                  Color{230,126,34,255},
+                  "Cylinder",
+                  BUTTON_ICON_CYLINDER);
 
-DrawRoundedButton(
-    importBtn,
-    Color{155,89,182,255},
-    "Import",
-    ICON_IMPORT);
+    DrawRoundedButton(importBtn,
+                  Color{155,89,182,255},
+                  "Import",
+                  BUTTON_ICON_IMPORT);
 }
 
 void GuidedModeUnload()
