@@ -30,7 +30,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/raysan5/raylib.git
     GIT_TAG 6.0 
     GIT_SHALLOW TRUE
-    OVERRIDE_FIND_PACKAGE ON # Makes it so that find_package(raylib) will find this instead of any system-installed version
+    OVERRIDE_FIND_PACKAGE  ON # Makes it so that find_package(raylib) will find this instead of any system-installed version
 )
 FetchContent_MakeAvailable(raylib)
 

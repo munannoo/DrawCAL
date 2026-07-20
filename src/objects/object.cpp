@@ -331,13 +331,6 @@ static Model cubeModel;
 static Model sphereModel;
 static Model cylinderModel;
 
-void load() {
-	loadScene();
-}
-void save() {
-	saveScene();
-}
-
 void initModels()
 {
 	objects.push_back(std::make_unique<cube>());

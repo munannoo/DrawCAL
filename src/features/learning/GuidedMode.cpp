@@ -268,7 +268,7 @@ void GuidedModeUpdate()
     if (CheckCollisionPointRec(GetMousePosition(), importBtn) &&
         IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
-        load();
+        loadScene();
         SetGuidedWorkspace(true);
         sceneManagerChangeScene(learnSceneId::LEARN_FREEDRAW);
     }

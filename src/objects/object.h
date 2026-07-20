@@ -27,11 +27,6 @@ void deleteObjects();
 bool updateObjectTransformGizmo(Camera3D camera, Rectangle viewport);
 void drawObjectTransformGizmo(Camera3D camera, Rectangle viewport);
 
-//load and save functions, defined in object.cpp but main logic is present in saveNload.cpp
-void load();
-void save();
-
-
 class shape
 {
 protected:
@@ -119,7 +114,7 @@ public:
 		return meshData;
 	}
 	void setMeshData(const R3D_MeshData& newMeshData) {
-		if (!R3D_IsMeshDataValid(meshData)) {
+		if (!R3D_IsMeshDataValid(newMeshData)) {
 			return;
 			TRACELOG(LOG_WARNING, "Attempted to set invalid mesh data for object ID %u", id);
 		}
