@@ -30,6 +30,10 @@ optionSceneId pendingOptionScene = optionSceneId::OPTIONS_NONE;
 bool sceneInitialized = false; 
 
 void sceneManagerInit() {
+	R3D_Init(GetScreenWidth(), GetScreenHeight());
+	//R3D_EnableShadow(light);
+	//R3D_EnableLight(light);
+
 	initModels(); // Initialize the Models, only needs to be called once
 	InitTransformGizmo();
 	initgridShader();

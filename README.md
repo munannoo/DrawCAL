@@ -1,11 +1,7 @@
 # Project Visualizer
 
-
-
 ## Build Instructions
-
 To build the project package, run:
-# DO NOT DO THIS IN THE SAME TERMINAL AS BEFORE
 ```bash
 mkdir build
 cd build
@@ -13,35 +9,24 @@ cmake ..
 ```
 ## Compile in VS Code
 Press:
-
 ```text
 Ctrl + Shift + B
+```
+## Compile in cmd
+```text
+cmake -S . -B build (Generates Build Files to build)
+cmake --build build (Builds the project)
 ```
 
 ## Run
 
 Executable location:
-
 ```text
 drawcal/drawcal.exe
 ```
 
-## Credits / Third-Party References
-
-### rPBR
-
-This project’s physically based rendering lighting and shader implementation was adapted with reference to **rPBR – Physically Based Rendering viewer for raylib**, created by **Victor Fisac**.
-
-rPBR was used as a reference for the PBR shader structure, including the metalness/roughness workflow, Cook-Torrance style lighting, normal mapping, and point-light based material shading.
-
-The implementation in this project has been modified and integrated into DrawCAL’s own rendering, object, material, and lighting systems. The full rPBR viewer/core was not copied directly; only the PBR lighting and shader approach was adapted.
-
-rPBR is licensed under the **zlib/libpng license**.
-
-Original rPBR copyright:
-
-```text
-Copyright (c) 2017-2020 Victor Fisac
-```
-
-This attribution is included to clearly acknowledge the original source and to avoid misrepresenting the adapted code as fully original.
+## R3D Implementation
+R3D is a useful renderer as it contains a bunch of funtions that are useful for a 3d workspace.
+R3D contains native light objects and enough support so that external shaders aren't necessary, it also contains generate normals and tangents function which will be useful for vertex editing.
+R3D however uses a different method of compilation from raylib, R3D_Begin(Camera) ... R3D_End() is used to start and end the rendering of a 3d scene, this is different from raylib's BeginMode3D(Camera) ... EndMode3D() which is used to start and end the rendering of a 3d scene.
+Both of these are used, however, for rendering different materials

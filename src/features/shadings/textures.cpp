@@ -8,17 +8,90 @@
 #include <unordered_map>
 #include <future>
 
-PBRMaterial concreteMaterial = { 0 };
-PBRMaterial woodMaterial = { 0 };
-PBRMaterial plasticMaterial = { 0 };
+//PBRMaterial concreteMaterial = { 0 };
+//PBRMaterial woodMaterial = { 0 };
+//PBRMaterial plasticMaterial = { 0 };
+//
+//PBRMaterial cobblestoneMaterial = { 0 };
+//
+//PBRMaterial brickMaterial = { 0 };
+//PBRMaterial tilesMaterial = { 0 };
+//PBRMaterial metalMaterial = { 0 };
+//PBRMaterial marbleMaterial = { 0 };
+//PBRMaterial asphaltMaterial = { 0 };
 
-PBRMaterial cobblestoneMaterial = { 0 };
+R3D_Material defaultMaterial{};
+R3D_Material concreteMaterial{};
+R3D_Material woodMaterial{};
+R3D_Material plasticMaterial{};
+R3D_Material cobblestoneMaterial{};
+R3D_Material brickMaterial{};
+R3D_Material tilesMaterial{};
+R3D_Material metalMaterial{};
+R3D_Material marbleMaterial{};
+R3D_Material asphaltMaterial{};
 
-PBRMaterial brickMaterial = { 0 };
-PBRMaterial tilesMaterial = { 0 };
-PBRMaterial metalMaterial = { 0 };
-PBRMaterial marbleMaterial = { 0 };
-PBRMaterial asphaltMaterial = { 0 };
+Image PackORM(
+    const char* aoPath,
+    const char* roughnessPath,
+    const char* metallicPath
+)
+{
+    Image ao = LoadImage(aoPath);
+    Image roughness = LoadImage(roughnessPath);
+    Image metallic = LoadImage(metallicPath);
+
+    // They must have matching dimensions
+    if (ao.width != roughness.width ||
+        ao.height != roughness.height ||
+        ao.width != metallic.width ||
+        ao.height != metallic.height)
+    {
+        TraceLog(LOG_ERROR, "ORM texture dimensions do not match");
+
+        UnloadImage(ao);
+        UnloadImage(roughness);
+        UnloadImage(metallic);
+
+        return {};
+    }
+
+    Color* aoPixels = LoadImageColors(ao);
+    Color* roughnessPixels = LoadImageColors(roughness);
+    Color* metallicPixels = LoadImageColors(metallic);
+
+    int pixelCount = ao.width * ao.height;
+
+    Color* ormPixels = static_cast<Color*>(MemAlloc(pixelCount * sizeof(Color)));
+
+    for (int i = 0; i < pixelCount; i++)
+    {
+        ormPixels[i] = {
+            aoPixels[i].r,          // R = Occlusion
+            roughnessPixels[i].r,   // G = Roughness
+            metallicPixels[i].r,    // B = Metalness
+            255
+        };
+    }
+
+    Image orm = {
+        ormPixels,
+        ao.width,
+        ao.height,
+        1,
+        PIXELFORMAT_UNCOMPRESSED_R8G8B8A8
+    };
+
+    UnloadImageColors(aoPixels);
+    UnloadImageColors(roughnessPixels);
+    UnloadImageColors(metallicPixels);
+
+    UnloadImage(ao);
+    UnloadImage(roughness);
+    UnloadImage(metallic);
+
+    return orm;
+}
 
 static bool texturesLoaded = false;
 
@@ -42,10 +115,11 @@ struct TextureRequest
 
 struct MaterialTextureSetPaths
 {
-    PBRMaterial* target;
+    R3D_Material* target;
 
     const char* albedoPath;
     const char* normalPath;
+    const char* ormPath;
     const char* metallicPath;
     const char* roughnessPath;
     const char* aoPath;
@@ -135,17 +209,24 @@ static Texture2D GetUploadedTexture(
 }
 
 static void AssignMaterialTextures(
-    PBRMaterial& material,
+    R3D_Material& material,
     const MaterialTextureSetPaths& paths,
     const std::unordered_map<std::string, Texture2D>& uploadedTextures
 )
 {
-    material.albedo = GetUploadedTexture(uploadedTextures, paths.albedoPath);
-    material.normal = GetUploadedTexture(uploadedTextures, paths.normalPath);
-    material.metallic = GetUploadedTexture(uploadedTextures, paths.metallicPath);
-    material.roughness = GetUploadedTexture(uploadedTextures, paths.roughnessPath);
-    material.ao = GetUploadedTexture(uploadedTextures, paths.aoPath);
-    material.height = GetUploadedTexture(uploadedTextures, paths.heightPath);
+    //material.albedo = GetUploadedTexture(uploadedTextures, paths.albedoPath);
+    //material.normal = GetUploadedTexture(uploadedTextures, paths.normalPath);
+    //material.metallic = GetUploadedTexture(uploadedTextures, paths.metallicPath);
+    //material.roughness = GetUploadedTexture(uploadedTextures, paths.roughnessPath);
+    //material.ao = GetUploadedTexture(uploadedTextures, paths.aoPath);
+    //material.height = GetUploadedTexture(uploadedTextures, paths.heightPath);
+    material.albedo.texture = GetUploadedTexture(uploadedTextures, paths.albedoPath);
+    material.normal.texture = GetUploadedTexture(uploadedTextures, paths.normalPath);
+    Image ormImage = PackORM( paths.aoPath, paths.roughnessPath, paths.metallicPath );
+    material.orm.texture = LoadTextureFromImage(ormImage);
+    UnloadImage(ormImage);    //material.roughness = GetUploadedTexture(uploadedTextures, paths.roughnessPath);
+    //material.ao = GetUploadedTexture(uploadedTextures, paths.aoPath);
+    //material.height = GetUploadedTexture(uploadedTextures, paths.heightPath);
 }
 
 void LoadPBRTextures()
@@ -153,6 +234,19 @@ void LoadPBRTextures()
     if (texturesLoaded) return;
 
     const double startTime = GetTime();
+
+	// set to default values in case of unknown fields inside R3D_Material struct, so that we don't want to be 0
+    defaultMaterial = R3D_GetDefaultMaterial();
+
+    concreteMaterial = defaultMaterial;
+    woodMaterial = defaultMaterial;
+    plasticMaterial = defaultMaterial;
+    cobblestoneMaterial = defaultMaterial;
+    brickMaterial = defaultMaterial;
+    tilesMaterial = defaultMaterial;
+    metalMaterial = defaultMaterial;
+    marbleMaterial = defaultMaterial;
+    asphaltMaterial = defaultMaterial;
 
     MaterialTextureSetPaths materialSets[] =
     {
@@ -324,8 +418,8 @@ void LoadPBRTextures()
     );
 }
 
-static PBRMaterial* GetMaterial(MaterialType type)
-{
+R3D_Material* GetMaterial(MaterialType type)
+{ 
     switch (type)
     {
         case MATERIAL_WOOD:
@@ -353,41 +447,42 @@ static PBRMaterial* GetMaterial(MaterialType type)
             return &asphaltMaterial;
 
         case MATERIAL_CONCRETE:
-        default:
             return &concreteMaterial;
+        default:
+            return &defaultMaterial;
     }
 }
 
-void ApplyPBRMaterial(Model& model, MaterialType type)
-{
-    if (model.materialCount <= 0) return;
-
-    Material& mat = model.materials[0];
-
-    // Avoid rebinding the same textures every single draw call.
-    auto it = appliedMaterialCache.find(&mat);
-
-    if (it != appliedMaterialCache.end() && it->second == type)
-    {
-        return;
-    }
-
-    PBRMaterial* matData = GetMaterial(type);
-
-    mat.maps[MATERIAL_MAP_ALBEDO].texture = matData->albedo;
-    mat.maps[MATERIAL_MAP_NORMAL].texture = matData->normal;
-    mat.maps[MATERIAL_MAP_METALNESS].texture = matData->metallic;
-    mat.maps[MATERIAL_MAP_ROUGHNESS].texture = matData->roughness;
-    mat.maps[MATERIAL_MAP_OCCLUSION].texture = matData->ao;
-    mat.maps[MATERIAL_MAP_HEIGHT].texture = matData->height;
-
-    mat.maps[MATERIAL_MAP_ALBEDO].color = WHITE;
-    mat.maps[MATERIAL_MAP_METALNESS].value = 0.0f;
-    mat.maps[MATERIAL_MAP_ROUGHNESS].value = 1.0f;
-    mat.maps[MATERIAL_MAP_OCCLUSION].value = 1.0f;
-
-    appliedMaterialCache[&mat] = type;
-}
+//void ApplyPBRMaterial(Model& model, MaterialType type)
+//{
+//    if (model.materialCount <= 0) return;
+//
+//    Material& mat = model.materials[0];
+//
+//    // Avoid rebinding the same textures every single draw call.
+//    auto it = appliedMaterialCache.find(&mat);
+//
+//    if (it != appliedMaterialCache.end() && it->second == type)
+//    {
+//        return;
+//    }
+//
+//    PBRMaterial* matData = GetMaterial(type);
+//
+//    mat.maps[MATERIAL_MAP_ALBEDO].texture = matData->albedo;
+//    mat.maps[MATERIAL_MAP_NORMAL].texture = matData->normal;
+//    mat.maps[MATERIAL_MAP_METALNESS].texture = matData->metallic;
+//    mat.maps[MATERIAL_MAP_ROUGHNESS].texture = matData->roughness;
+//    mat.maps[MATERIAL_MAP_OCCLUSION].texture = matData->ao;
+//    mat.maps[MATERIAL_MAP_HEIGHT].texture = matData->height;
+//
+//    mat.maps[MATERIAL_MAP_ALBEDO].color = WHITE;
+//    mat.maps[MATERIAL_MAP_METALNESS].value = 0.0f;
+//    mat.maps[MATERIAL_MAP_ROUGHNESS].value = 1.0f;
+//    mat.maps[MATERIAL_MAP_OCCLUSION].value = 1.0f;
+//
+//    appliedMaterialCache[&mat] = type;
+//}
 
 static void UnloadTextureSafe(Texture2D& texture)
 {

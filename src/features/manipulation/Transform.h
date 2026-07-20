@@ -34,17 +34,9 @@ typedef enum GizmoState {
     GIZMO_ROTATE_Z
 } GizmoState;
 
-bool UpdateTransformGizmo(
-    Camera3D camera,
-    ObjectInstance* cubes, int cubeCount,
-    ObjectInstance* spheres, int sphereCount,
-    ObjectInstance* cylinders, int cylinderCount
-);
-void DrawTransformGizmo(
-    ObjectInstance* cubes, int cubeCount,
-    ObjectInstance* spheres, int sphereCount,
-    ObjectInstance* cylinders, int cylinderCount
-);
+bool UpdateTransformGizmo(Camera3D camera, Rectangle viewport);
+void DrawTransformGizmo();
+
 
 BoundingBox GetTransformedBounds(BoundingBox baseBox, Vector3 pos, Vector3 scale);
 void InitTransformGizmo();

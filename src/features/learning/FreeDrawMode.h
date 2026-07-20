@@ -11,29 +11,35 @@
 #include "features/manipulation/Transform.h"
 #include "features/learning/FreeDrawMode.h"
 #include "ui/scenes/sceneManager.h"
+#include "features/shadings/lighting.h"
 #include "raygui.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 
-enum viewIndex { VIEW_NONE = -1, VIEW_FREE = 0, VIEW_FRONT, VIEW_TOP, VIEW_LEFT, VIEW_RIGHT };
 // selected view (0=Front,1=Top,2=Left,3=Right)
 // Put free draw mode specific variables/Textures here, they will be initialised in freeDrawInit and unloaded in freeDrawUnload
 static struct freeDrawState {
-	Camera3D camera;
 	Rectangle drawArea;
 	int check;
 	bool mouseButtonPressed;
 	bool initiliased; // if the init function has been called
 	bool dropdownEditmode; 
 	// View dropdown state (top-right)
-	viewIndex currentViewIndex, lastViewIndex;
+	cameraView currentViewIndex, lastViewIndex;
 	bool viewDropdownOpen; 
 	bool cameraLocked;   // when true, camera controller movement is disabled (only zoom allowed)
 	bool helpTip; // Press F1
-
+	bool splitScreenEnabled;
+	bool cameraPanelOpen;
+	bool propertiesPanelOpen;
+	bool workspacePanelOpen;
+	std::vector<ViewportSlot> activeViews;
+	bool usingGizmo;
 } freeDrawState;
+
+
 
 void freeDrawInit();
 void freeDrawUpdate();
@@ -42,7 +48,4 @@ void freeDrawUnload();
 
 // Guided sessions use the editor without the object-creation context menu.
 void SetGuidedWorkspace(bool guided);
-
-void changeCameraView();
-void getProperties();
 #endif // FreeDrawMode_H
