@@ -38,6 +38,20 @@ void SetGuidedWorkspace(bool guided)
 
 namespace
 {
+    static Rectangle getEditorDockBounds()
+    {
+        const float width = Clamp(GetScreenWidth() * 0.30f, 370.0f, 430.0f);
+        return { static_cast<float>(GetScreenWidth()) - width, 52.0f, width, static_cast<float>(GetScreenHeight()) - 52.0f };
+    }
+
+    const float fontSize = static_cast<float>(GuiGetStyle(DEFAULT, TEXT_SIZE));
+    const float spacing = static_cast<float>(std::max(0, GuiGetStyle(DEFAULT, TEXT_SPACING)));
+    const float editorControlHeight = std::max(27, GuiGetStyle(DEFAULT, TEXT_SIZE) + 11);
+
+    static RenderTexture2D guidedViewTexture = {};
+    static int guidedViewTextureWidth = 0;
+    static int guidedViewTextureHeight = 0;
+
     struct GuidedObjectFrame
     {
         Vector3 center = { 0.0f, 0.0f, 0.0f };
@@ -46,51 +60,40 @@ namespace
 
     static GuidedObjectFrame GetGuidedObjectFrame()
     {
-        ObjectInstance* target = nullptr;
+        shape* target = nullptr;
 
-        // Prefer the exercise's selected object; imported scenes fall back to
-        // the first non-light object in the workspace.
-        for (int type = 1; type <= 3 && target == nullptr; ++type)
-            for (int index = 0; index < getObjectCount(type); ++index)
+        // Prefer the actively selected object.
+        for (auto& objectPtr : objects)
+        {
+            if (objectPtr && objectPtr->getSelected())
             {
-                ObjectInstance* candidate = getObjectMutable(type, index);
-                if (candidate != nullptr && !candidate->isLight && candidate->isSelected)
-                {
-                    target = candidate;
-                    break;
-                }
+                target = objectPtr.get();
+                break;
             }
+        }
 
-        for (int type = 1; type <= 3 && target == nullptr; ++type)
-            for (int index = 0; index < getObjectCount(type); ++index)
-            {
-                ObjectInstance* candidate = getObjectMutable(type, index);
-                if (candidate != nullptr && !candidate->isLight)
-                {
-                    target = candidate;
-                    break;
-                }
-            }
+        // Imported scenes fall back to the first object in the workspace.
+        if (target == nullptr && !objects.empty())
+            target = objects.front().get();
 
         if (target == nullptr) return {};
 
-        const Vector3 scale = { std::fabs(target->scale.x), std::fabs(target->scale.y),
-                                std::fabs(target->scale.z) };
-        const Matrix rotation = MatrixRotateXYZ({ target->rotation.x * DEG2RAD,
-                                                   target->rotation.y * DEG2RAD,
-                                                   target->rotation.z * DEG2RAD });
+        const Transform& t = target->getTransform();
+
+        const Vector3 scale = { std::fabs(t.scale.x), std::fabs(t.scale.y), std::fabs(t.scale.z) };
+
+        // transform.rotation is a quaternion (see shape::getMatrix()), not Euler degrees,
+        // so we derive the rotation matrix directly from it rather than via MatrixRotateXYZ.
+        const Matrix rotation = QuaternionToMatrix(t.rotation);
+
         GuidedObjectFrame frame;
-        frame.center = target->position;
-        // Rotated axis-aligned extents. All built-in meshes have unit local
-        // half-extents, including custom/imported objects represented here.
+        frame.center = t.translation;
+        // Rotated axis-aligned extents. All built-in meshes have unit local half-extents.
         frame.halfExtent =
         {
-            std::fabs(rotation.m0) * scale.x + std::fabs(rotation.m4) * scale.y +
-                std::fabs(rotation.m8) * scale.z,
-            std::fabs(rotation.m1) * scale.x + std::fabs(rotation.m5) * scale.y +
-                std::fabs(rotation.m9) * scale.z,
-            std::fabs(rotation.m2) * scale.x + std::fabs(rotation.m6) * scale.y +
-                std::fabs(rotation.m10) * scale.z
+            std::fabs(rotation.m0) * scale.x + std::fabs(rotation.m4) * scale.y + std::fabs(rotation.m8) * scale.z,
+            std::fabs(rotation.m1) * scale.x + std::fabs(rotation.m5) * scale.y + std::fabs(rotation.m9) * scale.z,
+            std::fabs(rotation.m2) * scale.x + std::fabs(rotation.m6) * scale.y + std::fabs(rotation.m10) * scale.z
         };
         return frame;
     }
@@ -132,10 +135,8 @@ namespace
         const int contentHeight = std::max(1, static_cast<int>(bounds.height) - headerHeight - 1);
         EnsureGuidedViewTexture(contentWidth, contentHeight);
 
-        BeginTextureMode(guidedViewTexture);
-        ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
-        DrawCameraScene(camera, false);
-        EndTextureMode();
+        Rectangle localViewport = { 0, 0, static_cast<float>(contentWidth), static_cast<float>(contentHeight) };
+        RenderCameraSceneToTexture(camera, localViewport, guidedViewTexture);
 
         DrawRectangleRec(bounds, GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
         DrawTexturePro(guidedViewTexture.texture,
@@ -149,9 +150,7 @@ namespace
             GetColor(GuiGetStyle(DEFAULT, BASE_COLOR_NORMAL)));
         DrawRectangleLinesEx(bounds, 1.0f,
             GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL)));
-        DrawEditorText(title, static_cast<int>(bounds.x + 10.0f),
-            static_cast<int>(bounds.y + 6.0f), 15,
-            GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+        DrawTextEx(GuiGetFont(), title, { bounds.x + 10.0f, bounds.y + 6.0f }, fontSize, spacing, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
         if (!guidedDimensionsVisible) return;
 
@@ -208,7 +207,7 @@ namespace
 
     static void DrawGuidedReferenceViews()
     {
-        const Rectangle dock = GetEditorDockBounds();
+        const Rectangle dock = getEditorDockBounds();
         const float gap = 4.0f;
         const float viewHeight = (dock.height - gap * 2.0f) / 3.0f;
         const float contentHeight = std::max(1.0f, viewHeight - 31.0f);
@@ -251,13 +250,10 @@ namespace
         : GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
     }
 
-    static bool IsPointerOverEditorUi()
-    {
-        return CheckCollisionPointRec(GetMousePosition(), GetEditorDockBounds());
-    }
-
     cameraController& getEditableCamera() {
-        return freeDrawState.activeViews[0].camera;
+        for (auto& slot : freeDrawState.activeViews)
+            if (slot.editable) return slot.camera;
+        return freeDrawState.activeViews[0].camera; // fallback, should be unreachable
     }
 
     static std::vector<Rectangle> computeViewportBounds(int count)
@@ -286,11 +282,6 @@ namespace
 
     int selectedIndex = -1;
 
-    static Rectangle getEditorDockBounds()
-    {
-        const float width = Clamp(GetScreenWidth() * 0.30f, 370.0f, 430.0f);
-        return { static_cast<float>(GetScreenWidth()) - width, 52.0f, width, static_cast<float>(GetScreenHeight()) - 52.0f };
-    }
 
     float getCameraPanelHeight()
     {
@@ -338,9 +329,6 @@ namespace
         return { dock.x, dock.y + getCameraPanelHeight() + getWorkspacePanelHeight(), dock.width, height };
     }
 
-    const float fontSize = static_cast<float>(GuiGetStyle(DEFAULT, TEXT_SIZE));
-    const float spacing = static_cast<float>(std::max(0, GuiGetStyle(DEFAULT, TEXT_SPACING)));
-    const float editorControlHeight = std::max(27, GuiGetStyle(DEFAULT, TEXT_SIZE) + 11);
 
     enum PropertyFloatField
     {
@@ -779,6 +767,7 @@ namespace
 
         if (splitActive && freeDrawState.activeViews.size() == 1)
         {
+            freeDrawState.splitScreenEnabled = splitActive;
             ViewportSlot front, top, left;
             front.editable = false; front.trackSelection = true; front.presetView = cameraView::Front;
             top.editable = false; top.trackSelection = true; top.presetView = cameraView::Top;
@@ -953,14 +942,6 @@ void freeDrawUpdate() {
     if (guidedWorkspace && IsKeyPressed(KEY_M))
         guidedDimensionsVisible = !guidedDimensionsVisible;
 
-    bool usingGizmo = updateObjectTransformGizmo(freeDrawState.camera);
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-    {
-        viewportClickStart = GetMousePosition();
-        viewportClickCandidate = !usingGizmo && !IsPointerOverEditorUi() &&
-            !freeDrawState.mouseButtonPressed;
-    }
-
     // Computed once, shared by both the click-ray and camera-update logic below.
     std::vector<Rectangle> bounds = computeViewportBounds(static_cast<int>(freeDrawState.activeViews.size()));
 
@@ -1031,24 +1012,19 @@ void freeDrawUpdate() {
         resetPropertyEditorState();
     }
 
+    Vector3 focus = activeObject ? activeObject->getTransform().translation : Vector3{ 0,0,0 };
+    for (auto& slot : freeDrawState.activeViews)
+        if (!slot.editable && slot.trackSelection)
+            slot.camera.setView(slot.presetView, focus);
+
     if (!usingGizmo && !isPointerOverEditorUi())
     {
         Vector2 mouse = GetMousePosition();
-
         for (size_t i = 0; i < freeDrawState.activeViews.size(); ++i)
         {
             ViewportSlot& slot = freeDrawState.activeViews[i];
-
-            if (!slot.editable && slot.trackSelection)
-            {
-                Vector3 focus = activeObject ? activeObject->getTransform().translation : Vector3{ 0,0,0 };
-                slot.camera.setView(slot.presetView, focus);
-            }
-
             if (slot.editable && !freeDrawState.cameraLocked && CheckCollisionPointRec(mouse, bounds[i]))
-            {
                 slot.camera.updateCamera();
-            }
         }
     }
 }
@@ -1087,13 +1063,11 @@ void freeDrawDraw() {
     }
     else
     {
-        drawWorkspacePanel();
-        drawPropertiesPanel();
-    }
-    drawPropertiesPanel(CheckCollisionPointRec(GetMousePosition(), getPropertiesPanelBounds()));
-    drawWorkspacePanel(CheckCollisionPointRec(GetMousePosition(), getWorkspacePanelBounds()));
-    drawCameraPanel(CheckCollisionPointRec(GetMousePosition(), getCameraPanelBounds()));
+        drawPropertiesPanel(CheckCollisionPointRec(GetMousePosition(), getPropertiesPanelBounds()));
+        drawWorkspacePanel(CheckCollisionPointRec(GetMousePosition(), getWorkspacePanelBounds()));
+        drawCameraPanel(CheckCollisionPointRec(GetMousePosition(), getCameraPanelBounds()));
 
+    }
     if (freeDrawState.helpTip)
     {
         drawCameraControllerSettings();
@@ -1103,6 +1077,7 @@ void freeDrawDraw() {
 void freeDrawUnload() {
     freeDrawState.initiliased = false;
     UnloadTransformGizmo();
+    if (guidedViewTexture.id != 0) { UnloadRenderTexture(guidedViewTexture); guidedViewTexture = {}; guidedViewTextureWidth = guidedViewTextureHeight = 0; }
 
     for (auto& slot : freeDrawState.activeViews)
         slot.releaseTarget();

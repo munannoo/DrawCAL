@@ -11,26 +11,6 @@ static Rectangle cylinderBtn;
 static Rectangle importBtn;
 static Rectangle backBtn;
 
-static void OpenWorkspaceWithObject(int objectType)
-{
-    const Vector3 spawnPosition = { 0.0f, 0.0f, 0.0f };
-    const int previousCount = getObjectCount(objectType);
-
-    switch (objectType)
-    {
-        case 1: clear(); cube(spawnPosition); lightSphere({6,20,10}, WHITE); break;
-        case 2: clear(); sphere(spawnPosition); lightSphere({6,20,10}, WHITE); break;
-        case 3: clear(); cylinder(spawnPosition); lightSphere({6,20,10}, WHITE); break;
-        default: return;
-    }
-
-    // Highlight the object that was just created when the workspace opens.
-    const int newCount = getObjectCount(objectType);
-    if (newCount > previousCount)
-        selectObject(objectType, newCount - 1);
-    SetGuidedWorkspace(true);
-    sceneManagerChangeScene(learnSceneId::LEARN_FREEDRAW);
-}
 enum GuidedButtonIcon
 {
     BUTTON_ICON_CUBE,
@@ -38,6 +18,35 @@ enum GuidedButtonIcon
     BUTTON_ICON_CYLINDER,
     BUTTON_ICON_IMPORT
 };
+
+static void OpenWorkspaceWithObject(int objectType)
+{
+    const Vector3 spawnPosition = { 0.0f, 0.0f, 0.0f };
+
+    clearScene();
+
+    shape* newObject = nullptr;
+
+    switch (objectType)
+    {
+    case 1: objects.push_back(std::make_unique<cube>(spawnPosition));     newObject = objects.back().get(); break;
+    case 2: objects.push_back(std::make_unique<sphere>(spawnPosition));   newObject = objects.back().get(); break;
+    case 3: objects.push_back(std::make_unique<cylinder>(spawnPosition)); newObject = objects.back().get(); break;
+    default:
+        TraceLog(LOG_WARNING, "Guided mode: object type %d not yet implemented", objectType);
+        return;
+    }
+
+    lights.push_back(std::make_unique<Light>(
+        Vector3{ 6.0f, 20.0f, 10.0f }, Vector3{ 0.0f, 0.0f, 0.0f }, WHITE, R3D_LIGHT_SPOT));
+
+    if (newObject != nullptr)
+        selectObjects(newObject, false);
+
+    SetGuidedWorkspace(true);
+    sceneManagerChangeScene(learnSceneId::LEARN_FREEDRAW);
+}
+
 
 static void DrawCubeIcon(Rectangle r)
 {

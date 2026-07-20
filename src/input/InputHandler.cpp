@@ -200,11 +200,11 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
                     }
                     else if (strcmp(submenuText[focused], "Insert Sphere") == 0)
                     {
-                        //sphere(objPosn, GRAY);
+                        objects.push_back(std::make_unique<sphere>(objPosn));
                     }
                     else if (strcmp(submenuText[focused], "Insert Cylinder") == 0)
                     {
-                        //cylinder(objPosn, GRAY);
+                        objects.push_back(std::make_unique<cylinder>(objPosn));
                     }
                     else if (strcmp(submenuText[focused], "Insert Point Light") == 0)
                     {

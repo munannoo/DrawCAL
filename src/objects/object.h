@@ -215,6 +215,65 @@ public:
 
 };
 
+class sphere : public shape
+{
+private:
+	float radius;
+	int rings, slices;
+
+	ObjectType objectType;
+public:
+	static int sphereCount;
+
+	static int getTotalCount() {
+		return sphereCount;
+	}
+
+	sphere(
+		Vector3 position = { 0.0f, 0.0f, 0.0f },
+		Quaternion rotation = QuaternionIdentity(),
+		Vector3 scale = { 1.0f, 1.0f, 1.0f },
+		float radius = 0.5f,
+		int rings = 16, int slices = 16
+	);
+
+	bool generateMeshData() override;
+	void drawShape() override;
+
+	float getRadius() const { return radius; }
+};
+
+class cylinder : public shape
+{
+private:
+	float radius;
+	float height;
+	int slices;
+
+	ObjectType objectType;
+public:
+	static int cylinderCount;
+
+	static int getTotalCount() {
+		return cylinderCount;
+	}
+
+	cylinder(
+		Vector3 position = { 0.0f, 0.0f, 0.0f },
+		Quaternion rotation = QuaternionIdentity(),
+		Vector3 scale = { 1.0f, 1.0f, 1.0f },
+		float radius = 0.5f,
+		float height = 1.0f,
+		int slices = 16
+	);
+
+	bool generateMeshData() override;
+	void drawShape() override;
+
+	float getRadius() const { return radius; }
+	float getHeight() const { return height; }
+};
+
 void selectObjectByRay(Ray ray);
 void selectObjects(shape* object, bool);
 

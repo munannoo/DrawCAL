@@ -34,7 +34,13 @@ bool shape::loadMesh()
 	meshDirty = false;
 	return R3D_IsMeshValid(mesh);
 }
-
+void clearScene()
+{
+	objects.clear();       // unique_ptr destructors handle mesh/meshData unload via ~shape()
+	lights.clear();        // unique_ptr destructors call R3D_DestroyLight via ~Light()
+	selectedObjects.clear();
+	activeObject = nullptr;
+}
 void shape::drawSelectionWireframe(Color color) const
 {
 	if (!getSelected()) return;
@@ -257,6 +263,68 @@ void cube::drawShape() {
 		R3D_DrawMeshPro(mesh, *getMaterial(), MatrixCompose(transform.translation, transform.rotation, transform.scale));
 		//if (getSelected()) drawSelectionWireframe(RED);
 	}
+}
+
+
+bool sphere::generateMeshData()
+{
+
+	meshData = R3D_GenMeshDataSphere(radius, rings, slices); 
+	return R3D_IsMeshDataValid(meshData);
+}
+
+int sphere::sphereCount = 0;
+
+sphere::sphere(Vector3 position, Quaternion rotation, Vector3 scale, float radius, int rings, int slices)
+	: shape(), radius(radius), rings(rings), slices(slices)
+{
+	setObjectType(ObjectType::SPHERE);
+	transform.translation = position;
+	transform.rotation = rotation;
+	transform.scale = scale;
+
+	generateMeshData();
+	primitiveType = R3D_PRIMITIVE_TRIANGLES;
+	loadMesh();
+
+	sphereCount++;
+}
+
+void sphere::drawShape() {
+	bool valid = R3D_IsMeshValid(mesh);
+	if (!valid) TraceLog(LOG_WARNING, "sphere %d: mesh invalid, skipping draw", getId());
+	if (valid)
+		R3D_DrawMeshPro(mesh, *getMaterial(), MatrixCompose(transform.translation, transform.rotation, transform.scale));
+}
+
+bool cylinder::generateMeshData()
+{
+	meshData = R3D_GenMeshDataCylinder(radius, height, slices);
+	return R3D_IsMeshDataValid(meshData);
+}
+
+int cylinder::cylinderCount = 0;
+
+cylinder::cylinder(Vector3 position, Quaternion rotation, Vector3 scale, float radius, float height, int slices)
+	: shape(), radius(radius), height(height), slices(slices)
+{
+	setObjectType(ObjectType::CYLINDER);
+	transform.translation = position;
+	transform.rotation = rotation;
+	transform.scale = scale;
+
+	generateMeshData();
+	primitiveType = R3D_PRIMITIVE_TRIANGLES;
+	loadMesh();
+
+	cylinderCount++;
+}
+
+void cylinder::drawShape() {
+	bool valid = R3D_IsMeshValid(mesh);
+	if (!valid) TraceLog(LOG_WARNING, "cylinder %d: mesh invalid, skipping draw", getId());
+	if (valid)
+		R3D_DrawMeshPro(mesh, *getMaterial(), MatrixCompose(transform.translation, transform.rotation, transform.scale));
 }
 
 static Model cubeModel;

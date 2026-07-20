@@ -54,7 +54,7 @@ void drawGrid(const Camera3D &camera) {
 
 }
 
-void DrawCameraScene(const Camera3D& camera, Rectangle viewport, RenderTexture2D& target)
+void RenderCameraSceneToTexture(const Camera3D& camera, Rectangle viewport, RenderTexture2D& target)
 {
     Rectangle localViewport = { 0, 0, viewport.width, viewport.height }; // local, not screen-space
 
@@ -92,6 +92,11 @@ void DrawCameraScene(const Camera3D& camera, Rectangle viewport, RenderTexture2D
     }
     EndMode3D();
     EndTextureMode();
+}
+
+void DrawCameraScene(const Camera3D& camera, Rectangle viewport, RenderTexture2D& target)
+{
+    RenderCameraSceneToTexture(camera, viewport, target);
 
     // Screen-space offset only matters here, placing the finished texture on screen.
     DrawTextureRec(target.texture, { 0, 0, viewport.width, -viewport.height },

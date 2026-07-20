@@ -1,4 +1,3 @@
-
 #include "data/save_load/saveNload.h"
 // since json is not natively supported by cpp
 using json = nlohmann::json;
@@ -51,7 +50,7 @@ static json meshDataToJson(const R3D_MeshData& meshData)
         data["vertices"].push_back({
             {"position", vector3ToJson(vertex.position)},
             {"texcoord", {vertex.texcoord[0],vertex.texcoord[1]}},
-        });
+            });
     }
 
     for (int i = 0; i < meshData.indexCount; i++)
@@ -65,16 +64,16 @@ static json meshDataToJson(const R3D_MeshData& meshData)
 static const char* MaterialTypeToString(MaterialType material)
 {
     switch (material) {
-        case MATERIAL_CONCRETE: return "concrete";
-        case MATERIAL_WOOD: return "wood";
-        case MATERIAL_PLASTIC: return "plastic";
-        case MATERIAL_COBBLESTONE: return "cobblestone";
-        case MATERIAL_BRICK: return "brick";
-        case MATERIAL_TILES: return "tiles";
-        case MATERIAL_METAL: return "metal";
-        case MATERIAL_MARBLE: return "marble";
-        case MATERIAL_ASPHALT: return "asphalt";
-        default: return "concrete";
+    case MATERIAL_CONCRETE: return "concrete";
+    case MATERIAL_WOOD: return "wood";
+    case MATERIAL_PLASTIC: return "plastic";
+    case MATERIAL_COBBLESTONE: return "cobblestone";
+    case MATERIAL_BRICK: return "brick";
+    case MATERIAL_TILES: return "tiles";
+    case MATERIAL_METAL: return "metal";
+    case MATERIAL_MARBLE: return "marble";
+    case MATERIAL_ASPHALT: return "asphalt";
+    default: return "concrete";
     }
 }
 
@@ -91,13 +90,28 @@ static MaterialType StringToMaterialType(const std::string& material)
     return MATERIAL_CONCRETE;
 }
 
+// NOTE: added — addObject was previously saving obj.getObjectType() directly (a raw enum
+// int), while loadScene reads "type" back as a string ("cube"/"sphere"/"cylinder"). That
+// mismatch meant nothing — not even cubes — ever matched on load. This converts the enum
+// to the same string vocabulary loadScene expects.
+static const char* ObjectTypeToString(ObjectType type)
+{
+    switch (type) {
+    case ObjectType::CUBE: return "cube";
+    case ObjectType::SPHERE: return "sphere";
+    case ObjectType::CYLINDER: return "cylinder";
+    case ObjectType::CUSTOM: return "custom";
+    default: return "cube";
+    }
+}
+
 // Add new object information to the end of the json file
 static void addObject(json& sceneData, shape& obj) {
     json objectData;
-	objectData["type"] = obj.getObjectType();
+    objectData["type"] = ObjectTypeToString(obj.getObjectType()); // was: obj.getObjectType() (raw enum int, mismatched loadScene's string read)
     objectData["material"] = MaterialTypeToString(obj.getMaterialType());
     //objectData["color"] = colorToJson(obj.color);
-	objectData["transform"] = transformToJson(obj.getTransform());
+    objectData["transform"] = transformToJson(obj.getTransform());
     //objectData["position"] = vector3ToJson(obj.getTransform().translation);
     //objectData["rotation"] = vector3ToJson(QuaternionToEuler(obj.getTransform().rotation));
     //objectData["scale"] = vector3ToJson(obj.getTransform().scale);
@@ -199,8 +213,10 @@ static R3D_MeshData jsonToMeshData(const json& data)
 
     for (int i = 0; i < meshData.indexCount; i++)
     {
+        // NOTE: was get<uint16_t>() while meshData.indices is uint32_t* — any mesh with
+        // more than 65,535 indices would silently truncate/corrupt on load. Fixed to uint32_t.
         meshData.indices[i] =
-            data["indices"][i].get<uint16_t>();
+            data["indices"][i].get<uint32_t>();
     }
 
     return meshData;
@@ -210,11 +226,17 @@ static void loadObject(shape& obj, const json& objectData) {
     //obj.color = objectData.contains("color")
     //    ? jsonToColor(objectData["color"])
     //    : Color{ 255, 255, 255, 255 };
-	// Get Material, Return Concrete if not found
-	obj.setObjectType(static_cast<ObjectType>(objectData.value("objects", 3)));
+
+    // NOTE: removed the old objectType-setting line here. It read
+    // objectData.value("objects", 3) — the wrong key ("objects" instead of "type"), and
+    // treated it as numeric even though "type" is a string — so it always silently forced
+    // every loaded object to ObjectType::CUSTOM (enum value 3). objectType is already set
+    // correctly by each concrete subclass's constructor (cube/sphere/cylinder all call
+    // setObjectType(...) internally), so no override is needed here at all.
+
     obj.setMaterialType(StringToMaterialType(objectData.value("material", "concrete")));
     obj.setTransform(jsonToTransform(objectData["transform"]));
-	obj.setMeshData(jsonToMeshData(objectData["meshData"]));
+    obj.setMeshData(jsonToMeshData(objectData["meshData"]));
 
 }
 
@@ -232,7 +254,7 @@ bool loadScene() {
     }
     catch (const json::exception& error) {
         std::cout << "Could not load scene.drawcal: " << error.what() << '\n';
-        TraceLog(LOG_ERROR,"Could not load scene.drawcal: %s",error.what());
+        TraceLog(LOG_ERROR, "Could not load scene.drawcal: %s", error.what());
 
         return false;
     }
@@ -253,19 +275,24 @@ bool loadScene() {
     {
         for (const auto& objectData : sceneData["objects"])
         {
-            std::string type =objectData.value("type", "");
+            std::string type = objectData.value("type", "");
             std::unique_ptr<shape> object;
 
             if (type == "cube")
             {
-                object = std::make_unique<cube>();}
-            //else if (type == "sphere")
-                //{object = std::make_unique<sphere>();}
-            //else if (type == "cylinder")
-                //{object = std::make_unique<cylinder>();}
+                object = std::make_unique<cube>();
+            }
+            else if (type == "sphere")
+            {
+                object = std::make_unique<sphere>();
+            }
+            else if (type == "cylinder")
+            {
+                object = std::make_unique<cylinder>();
+            }
             else
             {
-                TraceLog(LOG_WARNING,"Unknown object type: %s",type.c_str());
+                TraceLog(LOG_WARNING, "Unknown object type: %s", type.c_str());
 
                 continue;
             }
@@ -277,13 +304,13 @@ bool loadScene() {
     }
     catch (const json::exception& error)
     {
-        TraceLog(LOG_ERROR,"Failed while loading objects: %s",error.what()
+        TraceLog(LOG_ERROR, "Failed while loading objects: %s", error.what()
         );
 
         return false;
     }
 
-    TraceLog(LOG_INFO,"Scene loaded. Object count: %i",static_cast<int>(objects.size())
+    TraceLog(LOG_INFO, "Scene loaded. Object count: %i", static_cast<int>(objects.size())
     );
 
     return true;
