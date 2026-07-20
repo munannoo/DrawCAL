@@ -4,11 +4,39 @@
 #include "rlgl.h"
 #include "math.h"
 #include "objects/object.h"   // shape, selectedObjects, activeObject
+#include "features/shadings/lighting.h" // selectedLights
 
 static Model ringModel;
 static bool ringModelLoaded = false;
 static GizmoState currentGizmoState = GIZMO_NONE;
 static Vector3 gizmoCenter = { 0.0f, 0.0f, 0.0f };
+
+static void MoveSelectedLights(Vector3 delta)
+{
+    for (Light* lightPtr : selectedLights)
+    {
+        lightPtr->setPosition(Vector3Add(lightPtr->getPosition(), delta));
+        lightPtr->setTarget(Vector3Add(lightPtr->getTarget(), delta));
+    }
+}
+
+// Rotates each selected light's direction (position -> target) around its
+// own position. Position itself doesn't move.
+static void RotateSelectedLightsAxis(Vector3 rotationDeltaDeg)
+{
+    Vector3 rad = Vector3Scale(rotationDeltaDeg, DEG2RAD);
+    Quaternion deltaRotation = QuaternionFromEuler(rad.x, rad.y, rad.z);
+
+    for (Light* lightPtr : selectedLights)
+    {
+        Vector3 position = lightPtr->getPosition();
+        Vector3 direction = Vector3RotateByQuaternion(Vector3Subtract(lightPtr->getTarget(), position), deltaRotation);
+        lightPtr->setTarget(Vector3Add(position, direction));
+    }
+}
+
+
+
 
 typedef struct GizmoDimensions {
     float size;
@@ -27,17 +55,10 @@ typedef struct GizmoDimensions {
     float ringPickPixels;
 } GizmoDimensions;
 
-static float ClampFloat(float value, float minValue, float maxValue)
-{
-    if (value < minValue) return minValue;
-    if (value > maxValue) return maxValue;
-    return value;
-}
-
 static GizmoDimensions GetGizmoDimensions(float selectedMaxScale)
 {
     GizmoDimensions dims = { 0 };
-    dims.size = ClampFloat(1.0f + (selectedMaxScale - 1.0f) * 0.25f, 0.9f, 6.0f);
+    dims.size = Clamp(1.0f + (selectedMaxScale - 1.0f) * 0.25f, 0.9f, 6.0f);
     dims.objectRadius = fmaxf(selectedMaxScale * 1.25f, 1.1f);
     dims.ringOuterX = dims.objectRadius + 0.55f * dims.size;
     dims.ringOuterY = dims.objectRadius + 0.78f * dims.size;
@@ -80,6 +101,12 @@ static Vector3 GetGizmoCenter()
     for (shape* obj : selectedObjects)
     {
         center = Vector3Add(center, obj->getTransform().translation);
+        count++;
+    }
+
+    for (Light* lightPtr : selectedLights)
+    {
+        center = Vector3Add(center, lightPtr->getPosition());
         count++;
     }
 
@@ -148,7 +175,7 @@ static float DistancePointToSegment(Vector2 point, Vector2 start, Vector2 end)
     }
 
     float t = Vector2DotProduct(Vector2Subtract(point, start), segment) / segmentLengthSq;
-    t = ClampFloat(t, 0.0f, 1.0f);
+    t = Clamp(t, 0.0f, 1.0f);
 
     Vector2 closest = Vector2Add(start, Vector2Scale(segment, t));
     return Vector2Distance(point, closest);
@@ -281,7 +308,7 @@ static bool checkGizmoClick(Ray ray, Camera3D camera, Rectangle viewport, Vector
 // ring-picking use this viewport's own dimensions/offset, not the full window.
 bool UpdateTransformGizmo(Camera3D camera, Rectangle viewport)
 {
-    if (selectedObjects.empty()) {
+    if (selectedObjects.empty() && selectedLights.empty()) {
         currentGizmoState = GIZMO_NONE;
         return false;
     }
@@ -309,15 +336,15 @@ bool UpdateTransformGizmo(Camera3D camera, Rectangle viewport)
         float rotationSensitivity = 0.5f;
 
         switch (currentGizmoState) {
-        case GIZMO_MOVE_X:   MoveSelectedObjects({ mouseDelta.x * moveSensitivity, 0.0f, 0.0f }); break;
-        case GIZMO_MOVE_Y:   MoveSelectedObjects({ 0.0f, -mouseDelta.y * moveSensitivity, 0.0f }); break;
-        case GIZMO_MOVE_Z:   MoveSelectedObjects({ 0.0f, 0.0f, -mouseDelta.x * moveSensitivity }); break;
+        case GIZMO_MOVE_X:   MoveSelectedObjects({ mouseDelta.x * moveSensitivity, 0.0f, 0.0f }); MoveSelectedLights({ mouseDelta.x * moveSensitivity, 0.0f, 0.0f }); break;
+        case GIZMO_MOVE_Y:   MoveSelectedObjects({ 0.0f, -mouseDelta.y * moveSensitivity, 0.0f }); MoveSelectedLights({ 0.0f, -mouseDelta.y * moveSensitivity, 0.0f }); break;
+        case GIZMO_MOVE_Z:   MoveSelectedObjects({ 0.0f, 0.0f, -mouseDelta.x * moveSensitivity }); MoveSelectedLights({ 0.0f, 0.0f, -mouseDelta.x * moveSensitivity }); break;
         case GIZMO_SCALE_X:  ScaleSelectedObjects({ mouseDelta.x * scaleSensitivity, 0.0f, 0.0f }); break;
         case GIZMO_SCALE_Y:  ScaleSelectedObjects({ 0.0f, -mouseDelta.y * scaleSensitivity, 0.0f }); break;
         case GIZMO_SCALE_Z:  ScaleSelectedObjects({ 0.0f, 0.0f, -mouseDelta.x * scaleSensitivity }); break;
-        case GIZMO_ROTATE_X: RotateSelectedObjectsAxis({ mouseDelta.x * rotationSensitivity, 0.0f, 0.0f }); break;
-        case GIZMO_ROTATE_Y: RotateSelectedObjectsAxis({ 0.0f, mouseDelta.x * rotationSensitivity, 0.0f }); break;
-        case GIZMO_ROTATE_Z: RotateSelectedObjectsAxis({ 0.0f, 0.0f, mouseDelta.x * rotationSensitivity }); break;
+        case GIZMO_ROTATE_X: RotateSelectedObjectsAxis({ mouseDelta.x * rotationSensitivity, 0.0f, 0.0f }); RotateSelectedLightsAxis({ mouseDelta.x * rotationSensitivity, 0.0f, 0.0f }); break;
+        case GIZMO_ROTATE_Y: RotateSelectedObjectsAxis({ 0.0f, mouseDelta.x * rotationSensitivity, 0.0f }); RotateSelectedLightsAxis({ 0.0f, mouseDelta.x * rotationSensitivity, 0.0f }); break;
+        case GIZMO_ROTATE_Z: RotateSelectedObjectsAxis({ 0.0f, 0.0f, mouseDelta.x * rotationSensitivity }); RotateSelectedLightsAxis({ 0.0f, 0.0f, mouseDelta.x * rotationSensitivity }); break;
         default: break;
         }
 
@@ -333,8 +360,7 @@ bool UpdateTransformGizmo(Camera3D camera, Rectangle viewport)
 
 void DrawTransformGizmo()
 {
-    if (selectedObjects.empty()) return;
-
+    if (selectedObjects.empty() && selectedLights.empty()) return;
     Vector3 center = GetGizmoCenter();
     float selectedMaxScale = GetSelectedMaxScale();
     GizmoDimensions dims = GetGizmoDimensions(selectedMaxScale);

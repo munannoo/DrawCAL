@@ -9,6 +9,47 @@ shape* activeObject;
 
 static void updateSelectedObjects();
 
+void selectAnyByRay(Ray ray)
+{
+	shape* closestObject = nullptr;
+	float closestObjectDist = FLT_MAX;
+
+	for (auto& object : objects)
+	{
+		RayCollision collision = GetRayCollisionBox(ray, object->getWorldBoundingBox());
+		if (collision.hit && collision.distance < closestObjectDist) {
+			closestObjectDist = collision.distance;
+			closestObject = object.get();
+		}
+	}
+
+	Light* closestLight = nullptr;
+	float closestLightDist = FLT_MAX;
+
+	for (auto& lightPtr : lights)
+	{
+		RayCollision collision = GetRayCollisionSphere(ray, lightPtr->getPosition(), lightPtr->getPickRadius());
+		if (collision.hit && collision.distance < closestLightDist) {
+			closestLightDist = collision.distance;
+			closestLight = lightPtr.get();
+		}
+	}
+
+	const bool additiveSelection = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+
+	// Whichever type is actually closer to the camera wins the click.
+	if (closestLightDist < closestObjectDist)
+	{
+		if (!additiveSelection) selectObjects(nullptr, false); // clear shape selection
+		selectLights(closestLight, additiveSelection);
+	}
+	else
+	{
+		if (!additiveSelection) selectLights(nullptr, false); // clear light selection
+		selectObjects(closestObject, additiveSelection);
+	}
+}
+
 shape::shape()
 	: transform{ { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f, 1.0f } },
 	meshData{},

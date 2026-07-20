@@ -271,6 +271,7 @@ public:
 
 void selectObjectByRay(Ray ray);
 void selectObjects(shape* object, bool);
+void selectAnyByRay(Ray ray);
 
 // All object arrays
 extern std::vector<std::unique_ptr<shape>> objects;

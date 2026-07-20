@@ -22,7 +22,6 @@ namespace UiStyle
     const Color kShadow = { 0, 0, 0, 35 };
 }
 
-
 static bool guidedWorkspace = false;
 static bool guidedDimensionsVisible = false;
 
@@ -335,6 +334,7 @@ namespace
         PROPERTY_POSITION_X = 0, PROPERTY_POSITION_Y, PROPERTY_POSITION_Z,
         PROPERTY_ROTATION_X, PROPERTY_ROTATION_Y, PROPERTY_ROTATION_Z,
         PROPERTY_SCALE_X, PROPERTY_SCALE_Y, PROPERTY_SCALE_Z,
+        PROPERTY_LIGHT_TARGET_X, PROPERTY_LIGHT_TARGET_Y, PROPERTY_LIGHT_TARGET_Z,
         PROPERTY_LIGHT_INTENSITY, PROPERTY_LIGHT_RADIUS,
         PROPERTY_FLOAT_FIELD_COUNT
     };
@@ -353,6 +353,8 @@ namespace
         CAMERA_PROPERTY_NEAR, CAMERA_PROPERTY_FAR, CAMERA_PROPERTY_FIELD_COUNT
     };
 
+
+    // bloc: variables
     static floatFieldState cameraPropertyFields[CAMERA_PROPERTY_FIELD_COUNT];
     static int activeCameraPropertyField = -1;
 
@@ -360,6 +362,11 @@ namespace
     static bool propertyMaterialDropdownOpen = false;
     static bool viewportClickCandidate = false;
     static Vector2 viewportClickStart = { 0.0f, 0.0f };
+
+    // New: light target picking
+    static bool lightTargetPickMode = false;
+    static Light* lightTargetPickLight = nullptr;
+
 
     static bool isPropertyEditorActive()
     {
@@ -401,11 +408,21 @@ namespace
     }
 
     static shape* propertyBoundObject = nullptr;
+    static Light* propertyBoundLight = nullptr;
 
     void updatePropertyBinding(shape* object)
     {
-        if (propertyBoundObject == object) return;
+        if (propertyBoundObject == object && propertyBoundLight == nullptr) return;
         propertyBoundObject = object;
+        propertyBoundLight = nullptr;
+        resetPropertyEditorState();
+    }
+
+    void updatePropertyBinding(Light* light)
+    {
+        if (propertyBoundLight == light && propertyBoundObject == nullptr) return;
+        propertyBoundLight = light;
+        propertyBoundObject = nullptr;
         resetPropertyEditorState();
     }
 
@@ -538,6 +555,7 @@ namespace
 
     bool isPointerOverEditorUi()
     {
+        if (IsCursorHidden()) return false; // GetMousePosition() is unbounded/meaningless while hidden
         return CheckCollisionPointRec(GetMousePosition(), getEditorDockBounds());
     }
 
@@ -598,11 +616,19 @@ namespace
 
         const float rowHeight = static_cast<float>(std::max(26, GuiGetStyle(DEFAULT, TEXT_SIZE) + 12));
         const float headerH = 39.0f;
+        const float sectionLabelHeight = 19.0f;
 
         Rectangle scrollBounds = { panel.x, panel.y + headerH, panel.width, panel.height - headerH };
 
         int objectCount = static_cast<int>(objects.size());
-        float contentHeight = std::max(scrollBounds.height, objectCount * (rowHeight + 1.0f) + 10.0f);
+        int lightCount = static_cast<int>(lights.size());
+
+        float contentHeight = std::max(
+            scrollBounds.height,
+            sectionLabelHeight + objectCount * (rowHeight + 1.0f)
+            + sectionLabelHeight + lightCount * (rowHeight + 1.0f)
+            + 10.0f
+        );
 
         Rectangle content = { 0, 0, scrollBounds.width - 16.0f, contentHeight };
         Rectangle panelView;
@@ -612,10 +638,13 @@ namespace
 
         float y = scrollBounds.y + workspacePanelScroll.y + 4.0f;
 
+        drawSectionLabel(panel.x + 20.0f, y, "Objects");
+
         if (objectCount == 0)
         {
             DrawTextEx(GuiGetFont(), "Workspace is empty", { panel.x + 20.0f, y + 3.0f }, fontSize, spacing,
                 GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_DISABLED)));
+            y += rowHeight;
         }
         else
         {
@@ -653,9 +682,65 @@ namespace
             }
         }
 
+        y += UiStyle::kDividerMargin;
+        drawSectionLabel(panel.x + 20.0f, y, "Lights");
+
+        if (lightCount == 0)
+        {
+            DrawTextEx(GuiGetFont(), "No lights in scene", { panel.x + 20.0f, y + 3.0f }, fontSize, spacing,
+                GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_DISABLED)));
+        }
+        else
+        {
+            int rowIndex = 0;
+            for (auto& lightPtr : lights)
+            {
+                Light* lightObj = lightPtr.get();
+                if (lightObj == nullptr) continue;
+
+                Rectangle row = { panel.x + 20.0f, y, scrollBounds.width - 36.0f, rowHeight };
+
+                if ((rowIndex % 2) == 1)
+                    DrawRectangleRec(row, Fade(GetColor(GuiGetStyle(DEFAULT, BASE_COLOR_NORMAL)), 0.12f));
+
+                const char* label = TextFormat("Light %d", lightObj->getId());
+                const bool wasSelected = lightObj->getSelected();
+                bool rowSelected = wasSelected;
+
+                const int previousAlignment = GuiGetStyle(TOGGLE, TEXT_ALIGNMENT);
+                GuiSetStyle(TOGGLE, TEXT_ALIGNMENT, TEXT_ALIGN_LEFT);
+                GuiToggle(row, label, &rowSelected);
+                GuiSetStyle(TOGGLE, TEXT_ALIGNMENT, previousAlignment);
+
+                if (rowSelected)
+                    DrawRectangle(static_cast<int>(row.x), static_cast<int>(row.y), 3, static_cast<int>(row.height), UiStyle::kAccent);
+
+                if (rowSelected != wasSelected)
+                {
+                    const bool additive = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+                    selectLights(lightObj, additive);
+                }
+
+                y += rowHeight + 1.0f;
+                ++rowIndex;
+            }
+        }
+
         EndScissorMode();
 
         if (!interactive) GuiEnable();
+    }
+
+    static void setCameraNavigationMode(cameraController& cam, cameraNavigationMode mode)
+    {
+        if (cam.getNavigationMode() == mode) return;
+
+        cam.setNavigationMode(mode);
+
+        if (mode == cameraNavigationMode::Walk)
+            DisableCursor();   // hides + locks the cursor for FPS-style mouselook
+        else
+            EnableCursor();    // restores the cursor for orbit/UI interaction
     }
 
     static void drawCameraPanel(bool interactive)
@@ -724,7 +809,10 @@ namespace
         if (scrollBounds.height < 20.0f) scrollBounds.height = 20.0f;
 
         const float fieldBlockHeight = 44.0f;
-        const float contentHeight = 20.0f + fieldBlockHeight * CAMERA_PROPERTY_FIELD_COUNT + 30.0f + controlHeight + 20.0f;
+        const float navSectionHeight = 19.0f + UiStyle::kDividerMargin * 2.0f
+            + (controlHeight + 8.0f) + (controlHeight + 12.0f);
+        const float contentHeight = 20.0f + fieldBlockHeight * CAMERA_PROPERTY_FIELD_COUNT
+            + 30.0f + controlHeight + 20.0f + navSectionHeight;
 
         Rectangle content = { 0, 0, scrollBounds.width - 16.0f, contentHeight };
         Rectangle panelView;
@@ -763,8 +851,6 @@ namespace
         bool splitActive = freeDrawState.splitScreenEnabled;
         GuiToggle(splitBtn, splitActive ? "Split Screen: On" : "Split Screen: Off", &splitActive);
 
-  
-
         if (splitActive && freeDrawState.activeViews.size() == 1)
         {
             freeDrawState.splitScreenEnabled = splitActive;
@@ -793,17 +879,40 @@ namespace
             freeDrawState.activeViews.resize(1);
         }
 
+        freeDrawState.splitScreenEnabled = splitActive;
+
+        y += controlHeight + 12.0f;
+
+        drawSectionDivider(fx, y, fw);
+        drawSectionLabel(fx, y, "Navigation");
+
+        Rectangle navModeBtn = { fx, y, fw, controlHeight };
+        bool orbitMode = (getEditableCamera().getNavigationMode() == cameraNavigationMode::Orbit);
+        bool orbitModeToggled = orbitMode;
+        GuiToggle(navModeBtn, orbitMode ? "Mode: Orbit" : "Mode: Walk", & orbitModeToggled);
+        if (orbitModeToggled != orbitMode)
+        {
+            setCameraNavigationMode(getEditableCamera(), orbitModeToggled ? cameraNavigationMode::Orbit : cameraNavigationMode::Walk);
+        }
+        y += controlHeight + 8.0f;
+
+        Rectangle projectionBtn = { fx, y, fw, controlHeight };
+        if (GuiButton(projectionBtn, TextFormat("Projection: %s (click to toggle)", getEditableCamera().getCameraProjection())))
+        {
+            getEditableCamera().toggleProjection();
+        }
         y += controlHeight + 12.0f;
 
         EndScissorMode();
 
         if (!interactive) GuiEnable();
     }
-
     void drawPropertiesPanel(bool interactive)
     {
         if (!interactive) GuiDisable();
-        const int total = static_cast<int>(selectedObjects.size());
+        const int totalObjects = static_cast<int>(selectedObjects.size());
+        const int totalLights = static_cast<int>(selectedLights.size());
+        const int total = totalObjects + totalLights;
 
         Rectangle panel = getPropertiesPanelBounds();
         if (drawPanelFrame(panel, "Properties", freeDrawState.propertiesPanelOpen))
@@ -821,6 +930,8 @@ namespace
 
         if (total == 0)
         {
+            propertyBoundObject = nullptr;
+            propertyBoundLight = nullptr;
             resetPropertyEditorState();
             DrawTextEx(GuiGetFont(), "No object selected", { contentX, y }, fontSize, spacing, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_DISABLED)));
             if (!interactive) GuiEnable();
@@ -829,12 +940,74 @@ namespace
 
         if (total > 1)
         {
+            propertyBoundObject = nullptr;
+            propertyBoundLight = nullptr;
             resetPropertyEditorState();
-            DrawTextEx(GuiGetFont(), TextFormat("Multiple objects selected: %d", total), { contentX, y }, fontSize, spacing, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+            DrawTextEx(GuiGetFont(), TextFormat("Multiple selected: %d", total), { contentX, y }, fontSize, spacing, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
             if (!interactive) GuiEnable();
             return;
         }
 
+        // Exactly one thing selected — either a light or a shape.
+        if (totalLights == 1)
+        {
+            Light* selected = activeLight ? activeLight : selectedLights.front();
+            updatePropertyBinding(selected);
+
+            DrawTextEx(GuiGetFont(), TextFormat("Light %d", selected->getId()), { contentX, y }, fontSize + 2.0f, spacing, UiStyle::kAccent);
+            y += 25.0f;
+
+            Rectangle scrollBounds = { panel.x, y, panel.width, panel.y + panel.height - y - (editorControlHeight + 20.0f) };
+
+            const float vec3BlockHeight = 19.0f + editorControlHeight + 10.0f + UiStyle::kDividerMargin * 2.0f + 1.0f;
+            const float pickButtonBlockHeight = editorControlHeight + UiStyle::kFieldGap;
+            const float contentHeight = vec3BlockHeight * 2.0f + pickButtonBlockHeight + 20.0f;
+
+            Rectangle content = { 0, 0, scrollBounds.width - 16.0f, contentHeight };
+            Rectangle view;
+            GuiScrollPanel(scrollBounds, NULL, content, &propertiesPanelScroll, &view);
+
+            BeginScissorMode(view.x, view.y, view.width, view.height);
+
+            float sy = scrollBounds.y + propertiesPanelScroll.y + 6.0f;
+            float sw = contentWidth - 16.0f;
+
+            drawSectionDivider(contentX, sy, sw);
+            Vector3 position = selected->getPosition();
+            bool positionChanged = DrawVector3Property("Position", contentX, sy, sw, position, PROPERTY_POSITION_X, -100000.0f, 100000.0f);
+            if (positionChanged) selected->setPosition(position);
+
+            drawSectionDivider(contentX, sy, sw);
+            Vector3 target = selected->getTarget();
+            bool targetChanged = DrawVector3Property("Look At", contentX, sy, sw, target, PROPERTY_LIGHT_TARGET_X, -100000.0f, 100000.0f);
+            if (targetChanged) selected->setTarget(target);
+
+            const bool pickingThisLight = (lightTargetPickMode && lightTargetPickLight == selected);
+            Rectangle pickButtonBounds = { contentX, sy, sw, editorControlHeight };
+            const char* pickLabel = pickingThisLight ? "Click in viewport to set target..." : "Pick Target in Viewport";
+            if (GuiButton(pickButtonBounds, pickLabel) && !pickingThisLight)
+            {
+                lightTargetPickMode = true;
+                lightTargetPickLight = selected;
+            }
+            sy += editorControlHeight + UiStyle::kFieldGap;
+
+            EndScissorMode();
+
+            Rectangle deselectButton = { contentX, panel.y + panel.height - editorControlHeight - 10.0f, 110.0f, editorControlHeight };
+            if (GuiButton(deselectButton, "Deselect"))
+            {
+                selectedLights.clear();
+                for (auto& lightPtr : lights) lightPtr->setSelected(false);
+                activeLight = nullptr;
+                resetPropertyEditorState();
+            }
+
+            if (!interactive) GuiEnable();
+            return;
+        }
+
+        // --- totalObjects == 1: existing shape-property path, unchanged below ---
         shape* selected = activeObject;
         if (selected == nullptr) { if (!interactive) GuiEnable(); return; }
 
@@ -910,6 +1083,47 @@ namespace
 
         if (!interactive) GuiEnable();
     }
+    static void drawControlHintsOverlay()
+    {
+        const bool isWalkMode = (getEditableCamera().getNavigationMode() == cameraNavigationMode::Walk);
+
+        struct HintLine { const char* text; };
+        HintLine lines[] = {
+			{ isWalkMode ? "Disable Walk Mode: N" : "" },
+            { "Toggle Help: F1" },
+        };
+        const int lineCount = static_cast<int>(sizeof(lines) / sizeof(lines[0]));
+
+        const float padding = 8.0f;
+        const float lineHeight = fontSize + 5.0f;
+        const float hintFontSize = fontSize;
+
+        float maxWidth = 0.0f;
+        for (auto& line : lines)
+        {
+            Vector2 size = MeasureTextEx(GuiGetFont(), line.text, hintFontSize, spacing);
+            maxWidth = std::max(maxWidth, size.x);
+        }
+
+        const float boxX = 10.0f;
+        const float boxY = 52.0f; // sits just below the top bar, matching getEditorDockBounds()'s y origin
+        const float boxWidth = maxWidth + padding * 2.0f;
+        const float boxHeight = lineCount * lineHeight + padding * 2.0f;
+
+        DrawRectangle(static_cast<int>(boxX), static_cast<int>(boxY), static_cast<int>(boxWidth), static_cast<int>(boxHeight), Fade(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)), 0.75f));
+        DrawRectangleLinesEx({ boxX, boxY, boxWidth, boxHeight }, 1.0f, GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL)));
+
+        float ty = boxY + padding;
+        for (auto& line : lines)
+        {
+            const Color color = isWalkMode && line.text[0] == 'D'
+                ? UiStyle::kAccent // highlight the walk-mode line's color when it's the "disable" state
+                : GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL));
+
+            DrawTextEx(GuiGetFont(), line.text, { boxX + padding, ty }, hintFontSize, spacing, color);
+            ty += lineHeight;
+        }
+    }
 }
 
 void freeDrawInit() {
@@ -938,35 +1152,115 @@ void freeDrawInit() {
 
 void freeDrawUpdate() {
 
-    if (!freeDrawState.initiliased) return; // Prevent update if not initialized
+    if (!freeDrawState.initiliased) return;
     if (guidedWorkspace && IsKeyPressed(KEY_M))
         guidedDimensionsVisible = !guidedDimensionsVisible;
 
-    // Computed once, shared by both the click-ray and camera-update logic below.
     std::vector<Rectangle> bounds = computeViewportBounds(static_cast<int>(freeDrawState.activeViews.size()));
 
-    // Gizmo update needs the viewport of the editable/main slot — find it
-    // rather than assuming index 0, in case slot ordering ever changes.
+    if (lightTargetPickMode)
+    {
+        if (IsKeyPressed(KEY_ENTER))
+        {
+            lightTargetPickMode = false;
+            lightTargetPickLight = nullptr;
+        }
+        else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !isPointerOverEditorUi())
+        {
+            Vector2 mouse = GetMousePosition();
+            int hitIndex = -1;
+            for (size_t i = 0; i < bounds.size(); ++i)
+            {
+                if (CheckCollisionPointRec(mouse, bounds[i])) { hitIndex = static_cast<int>(i); break; }
+            }
+
+            if (hitIndex != -1 && lightTargetPickLight != nullptr)
+            {
+                Rectangle vb = bounds[hitIndex];
+                Vector2 localMouse = { mouse.x - vb.x, mouse.y - vb.y };
+                Ray ray = GetScreenToWorldRayEx(
+                    localMouse,
+                    freeDrawState.activeViews[hitIndex].camera.getCamera(),
+                    static_cast<int>(vb.width),
+                    static_cast<int>(vb.height)
+                );
+
+                Vector3 hitPoint = {};
+                bool hasHit = false;
+                float closestDist = FLT_MAX;
+
+                // Prefer hitting an actual object in the scene.
+                for (auto& objectPtr : objects)
+                {
+                    RayCollision collision = GetRayCollisionBox(ray, objectPtr->getWorldBoundingBox());
+                    if (collision.hit && collision.distance < closestDist)
+                    {
+                        closestDist = collision.distance;
+                        hitPoint = collision.point;
+                        hasHit = true;
+                    }
+                }
+
+                if (!hasHit)
+                {
+                    // Clicked empty space — fall back to a horizontal plane at the
+                    // light's current target height so the pick still lands somewhere sensible.
+                    float planeHeight = lightTargetPickLight->getTarget().y;
+                    if (fabsf(ray.direction.y) > 0.0001f)
+                    {
+                        float t = (planeHeight - ray.position.y) / ray.direction.y;
+                        if (t > 0.0f)
+                        {
+                            hitPoint = Vector3Add(ray.position, Vector3Scale(ray.direction, t));
+                            hasHit = true;
+                        }
+                    }
+                }
+
+                if (hasHit) lightTargetPickLight->setTarget(hitPoint);
+            }
+
+            lightTargetPickMode = false;
+            lightTargetPickLight = nullptr;
+        }
+
+        return; // Swallow this frame entirely — no gizmo, selection, or camera orbit while picking.
+    }
+    if (!isPropertyEditorActive() && !isPointerOverEditorUi())
+    {
+        cameraController& editCam = getEditableCamera();
+
+        if (IsKeyPressed(KEY_KP_5))
+        {
+            editCam.toggleProjection();
+        }
+
+        if (IsKeyPressed(KEY_N))
+        {
+            cameraNavigationMode next = (editCam.getNavigationMode() == cameraNavigationMode::Orbit)
+                ? cameraNavigationMode::Walk : cameraNavigationMode::Orbit;
+            setCameraNavigationMode(editCam, next);
+            TraceLog(LOG_INFO, "Cursor hidden after mode switch: %s", IsCursorHidden() ? "yes" : "no");
+
+        }
+    }
+    // --- existing gizmo/selection/camera code continues unchanged below ---
     int editableIndex = 0;
+
     for (size_t i = 0; i < freeDrawState.activeViews.size(); ++i)
     {
         if (freeDrawState.activeViews[i].editable) { editableIndex = static_cast<int>(i); break; }
     }
 
-    bool usingGizmo = updateObjectTransformGizmo(
-        freeDrawState.activeViews[editableIndex].camera.getCamera(),
-        bounds[editableIndex]
-    );
+    bool usingGizmo = IsCursorHidden() ? false : updateObjectTransformGizmo( freeDrawState.activeViews[editableIndex].camera.getCamera(), bounds[editableIndex] );
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
         viewportClickStart = GetMousePosition();
-        viewportClickCandidate = !usingGizmo && !isPointerOverEditorUi() &&
-            !freeDrawState.mouseButtonPressed;
+        viewportClickCandidate = !usingGizmo && !isPointerOverEditorUi() && !freeDrawState.mouseButtonPressed;
     }
 
-    if (viewportClickCandidate && IsMouseButtonDown(MOUSE_BUTTON_LEFT) &&
-        Vector2Distance(viewportClickStart, GetMousePosition()) > 4.0f)
+    if (viewportClickCandidate && IsMouseButtonDown(MOUSE_BUTTON_LEFT) && Vector2Distance(viewportClickStart, GetMousePosition()) > 4.0f)
     {
         viewportClickCandidate = false;
     }
@@ -974,8 +1268,7 @@ void freeDrawUpdate() {
 
 
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-        if (viewportClickCandidate && !isPointerOverEditorUi() &&
-            !freeDrawState.mouseButtonPressed)
+        if (viewportClickCandidate && !IsCursorHidden() && !isPointerOverEditorUi() && !freeDrawState.mouseButtonPressed)
         {
             Vector2 mouse = GetMousePosition();
             int hitIndex = -1;
@@ -995,7 +1288,7 @@ void freeDrawUpdate() {
                     static_cast<int>(vb.height)
                 );
 
-                selectObjectByRay(ray);
+                selectAnyByRay(ray);
             }
         }
         viewportClickCandidate = false;
@@ -1023,7 +1316,8 @@ void freeDrawUpdate() {
         for (size_t i = 0; i < freeDrawState.activeViews.size(); ++i)
         {
             ViewportSlot& slot = freeDrawState.activeViews[i];
-            if (slot.editable && !freeDrawState.cameraLocked && CheckCollisionPointRec(mouse, bounds[i]))
+            bool overThisViewport = IsCursorHidden() ? slot.editable : CheckCollisionPointRec(mouse, bounds[i]);
+            if (slot.editable && !freeDrawState.cameraLocked && overThisViewport)
                 slot.camera.updateCamera();
         }
     }
@@ -1061,12 +1355,12 @@ void freeDrawDraw() {
         // Fixed, display-only orthographic views replace all editable dock UI.
         DrawGuidedReferenceViews();
     }
-    else
+    else if(!IsCursorHidden())
     {
         drawPropertiesPanel(CheckCollisionPointRec(GetMousePosition(), getPropertiesPanelBounds()));
         drawWorkspacePanel(CheckCollisionPointRec(GetMousePosition(), getWorkspacePanelBounds()));
         drawCameraPanel(CheckCollisionPointRec(GetMousePosition(), getCameraPanelBounds()));
-
+        drawControlHintsOverlay();
     }
     if (freeDrawState.helpTip)
     {
@@ -1081,6 +1375,8 @@ void freeDrawUnload() {
 
     for (auto& slot : freeDrawState.activeViews)
         slot.releaseTarget();
+
+    EnableCursor(); // don't leak a disabled/locked cursor state into whatever scene loads next
 
     // Models, material textures, and lighting are application-wide resources
     // initialized once by sceneManagerInit(). Destroying them here made a
