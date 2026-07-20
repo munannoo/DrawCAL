@@ -109,7 +109,6 @@ static void renderCube() {
 	for (auto& obj : objects)
 	{
 		obj->drawShape();
-		TraceLog(LOG_INFO, "%d", static_cast<int>(obj->getMaterialType()));
 	}
 	for (const auto& object : objects)
 	{
