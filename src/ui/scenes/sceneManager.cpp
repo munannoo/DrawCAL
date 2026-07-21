@@ -7,8 +7,8 @@ sceneFunctions scenes[static_cast<int>(sceneId::SCENE_COUNT)];
 sceneFunctions learnScenes[static_cast<int>(learnSceneId::LEARN_COUNT)];
 sceneFunctions optionScenes[static_cast<int>(optionSceneId::OPTIONS_COUNT)];
 // Define global buttons and state variables (single definition)
-Rectangle btnPlay, btnEditor, btnOptions, btnExit, btnSave, btnLoad;
-Rectangle btnFreeDraw, btnGuided, btnTutorial, btnBack;
+Rectangle btnPlay, btnEditor, btnExit, btnSave, btnLoad;
+Rectangle btnFreeDraw, btnGuided, btnBack;
 Rectangle btnGraphics, btnControls, btnInterface;
 Rectangle btnResolution, btnVSync, btnFullScreen;
 Rectangle btnUIScale, btnTheme, btnFontSize;
@@ -43,17 +43,14 @@ void sceneManagerInit() {
 	// Register scenes
 	scenes[static_cast<int>(sceneId::SCENE_MENU)] = { menuInit, menuUpdate, menuDraw, menuUnload };
 	scenes[static_cast<int>(sceneId::SCENE_LEARN)] = { learnMenuInit, learnMenuUpdate, learnMenuDraw, learnMenuUnload }; 
-	scenes[static_cast<int>(sceneId::SCENE_OPTIONS)] = { optionsMenuInit, optionsMenuUpdate, optionsMenuDraw, optionsMenuUnload };
 	// Register Learn Scenes
 	learnScenes[static_cast<int>(learnSceneId::LEARN_MENU)] = { learnMenuInit, learnMenuUpdate, learnMenuDraw, learnMenuUnload }; // pretty sure this is to be executed instead
 	learnScenes[static_cast<int>(learnSceneId::LEARN_FREEDRAW)] = { freeDrawInit, freeDrawUpdate, freeDrawDraw, freeDrawUnload };
 	learnScenes[static_cast<int>(learnSceneId::LEARN_GUIDED)] = { GuidedModeInit, GuidedModeUpdate, GuidedModeDraw, GuidedModeUnload }; // Placeholder for Guided learning mode
-	learnScenes[static_cast<int>(learnSceneId::LEARN_TUTORIAL)] = { NULL, NULL, NULL, NULL }; // Placeholder for Tutorial learning mode
 	// Register Options Scenes
 	optionScenes[static_cast<int>(optionSceneId::OPTIONS_MENU)] = { optionsMenuInit, optionsMenuUpdate, optionsMenuDraw, optionsMenuUnload };
 	optionScenes[static_cast<int>(optionSceneId::OPTIONS_CONTROLS)] = { optionsControlsInit, optionsControlsUpdate, optionsControlsDraw, optionsControlsUnload };
 	optionScenes[static_cast<int>(optionSceneId::OPTIONS_GRAPHICS)] = { optionsGraphicsInit, optionsGraphicsUpdate, optionsGraphicsDraw, optionsGraphicsUnload };
-	optionScenes[static_cast<int>(optionSceneId::OPTIONS_INTERFACE)] = { optionsInterfaceInit, optionsInterfaceUpdate, optionsInterfaceDraw, optionsInterfaceUnload };
 	// Initialise current scene
 	currentScene = sceneId::SCENE_MENU;
 	if (scenes[static_cast<int>(currentScene)].Init) scenes[static_cast<int>(currentScene)].Init();
@@ -84,9 +81,6 @@ static void resolveMainSceneChanges() {
 		{
 			pendingLearnScene = learnSceneId::LEARN_MENU;
 		}
-		else if (pendingScene == sceneId::SCENE_OPTIONS) {
-			pendingOptionScene = optionSceneId::OPTIONS_MENU;
-		}
 
 		// Unload the active sub-scene while its resources are still valid.
 		if (currentScene == sceneId::SCENE_LEARN && currentLearnScene != learnSceneId::LEARN_NONE)
@@ -94,12 +88,6 @@ static void resolveMainSceneChanges() {
 			if (learnScenes[static_cast<int>(currentLearnScene)].Unload)
 				learnScenes[static_cast<int>(currentLearnScene)].Unload();
 			currentLearnScene = learnSceneId::LEARN_NONE;
-		}
-		else if (currentScene == sceneId::SCENE_OPTIONS && currentOptionScene != optionSceneId::OPTIONS_NONE)
-		{
-			if (optionScenes[static_cast<int>(currentOptionScene)].Unload)
-				optionScenes[static_cast<int>(currentOptionScene)].Unload();
-			currentOptionScene = optionSceneId::OPTIONS_NONE;
 		}
 		else if (scenes[static_cast<int>(currentScene)].Unload)
 		{
@@ -172,21 +160,6 @@ void sceneManagerUpdate() {
 			if (scenes[static_cast<int>(currentScene)].Update) scenes[static_cast<int>(currentScene)].Update(); // Update the learn menu if we haven't selected a learn subscene
 		}
 	}
-	else if (currentScene == sceneId::SCENE_OPTIONS)
-	{
-		if (currentOptionScene != optionSceneId::OPTIONS_NONE)
-		{
-			if (optionScenes[static_cast<int>(currentOptionScene)].Update) optionScenes[static_cast<int>(currentOptionScene)].Update();
-		}
-		else {
-			if (scenes[static_cast<int>(currentScene)].Update) scenes[static_cast<int>(currentScene)].Update(); 
-		}
-	}
-	
-
-
-
-
 }
 
 void sceneManagerDraw() {
@@ -198,11 +171,8 @@ void sceneManagerDraw() {
 			learnScenes[static_cast<int>(currentLearnScene)].Draw();
 		}
 	}
-	else if (currentScene == sceneId::SCENE_OPTIONS) {
-		//TraceLog(LOG_INFO, "Drawing Learn Scene %d" ,currentOptionScene);
-		if (optionScenes[static_cast<int>(currentOptionScene)].Draw)
-		{
-			optionScenes[static_cast<int>(currentOptionScene)].Draw();
-		}
-	}
+}
+
+void sceneManagerUnload() {
+	R3D_Close();
 }

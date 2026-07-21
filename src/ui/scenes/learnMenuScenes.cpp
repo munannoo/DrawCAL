@@ -5,8 +5,7 @@
 void learnMenuInit() {
 	btnFreeDraw = { btnLeft, btnTop, btnWidth, btnHeight };
 	btnGuided = {btnLeft, btnTop + btnGap, btnWidth, btnHeight};
-	btnTutorial = {btnLeft, btnTop + 2 * btnGap, btnWidth, btnHeight};
-	btnBack = {btnLeft, btnTop + 3 * btnGap, btnWidth, btnHeight};
+	btnBack = {btnLeft, btnTop + 2 * btnGap, btnWidth, btnHeight};
 }
 
 void learnMenuUnload() {
@@ -27,7 +26,6 @@ void learnMenuDraw() {
 		sceneManagerChangeScene(learnSceneId::LEARN_FREEDRAW);
 	}
 	if (GuiButton(btnGuided, "Guided")) sceneManagerChangeScene(learnSceneId::LEARN_GUIDED);
-	if (GuiButton(btnTutorial, "Tutorial")) sceneManagerChangeScene(learnSceneId::LEARN_TUTORIAL);
 
 	if (GuiButton(btnBack, "Back")) {
 		pendingScene = sceneId::SCENE_MENU;

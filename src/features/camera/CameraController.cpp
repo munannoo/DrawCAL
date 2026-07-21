@@ -167,28 +167,85 @@ void cameraController::setCameraPerspective()
     camera.projection = CAMERA_PERSPECTIVE;
 }
 
-// Render a small overlay showing camera controls and current numeric settings
-// Render a small overlay showing camera controls and current numeric settings
-void drawCameraControllerSettings(void)
+
+void drawCameraControllerSettings(cameraController& cam)
 {
+    const bool isOrbitMode = (cam.getNavigationMode() == cameraNavigationMode::Orbit);
+    const Color accent = { 90, 160, 255, 255 };
+
+    struct Line { const char* text; bool isHeader; bool isActive; };
+    std::vector<Line> lines = {
+        { "Current Settings", true, false },
+        { TextFormat("Nav Mode: %s", isOrbitMode ? "Orbit" : "Walk"), false, false },
+        { TextFormat("Projection: %s", cam.getCameraProjection()), false, false },
+        { TextFormat("FOV: %.1f", cam.getFovy()), false, false },
+        { TextFormat("Move Speed: %.2f", cam.getWalkSpeed()), false, false },
+        { TextFormat("Sensitivity: %.3f", cam.getMouseSensitivity()), false, false },
+        { "", false, false },
+
+        { "Orbit Controls", true, isOrbitMode },
+        { "Orbit: Drag MMB", false, isOrbitMode },
+        { "Pan: Shift + Drag MMB", false, isOrbitMode },
+        { "Zoom: Mouse Wheel", false, isOrbitMode },
+        { "", false, false },
+
+        { "Walk Controls", true, !isOrbitMode },
+        { "Look: Mouse", false, !isOrbitMode },
+        { "Move: W A S D", false, !isOrbitMode },
+        { "Move Up / Down: Space / Ctrl", false, !isOrbitMode },
+        { "Pan: Drag MMB", false, !isOrbitMode },
+        { "Rotate (Pitch/Yaw): Arrow Keys", false, !isOrbitMode },
+        { "Roll: Q / E", false, !isOrbitMode },
+        { "Zoom: Wheel or Numpad +/-", false, !isOrbitMode },
+        { "", false, false },
+
+        { "Global Keybinds", true, false },
+        { "Toggle Orbit / Walk: N", false, false },
+        { "Toggle Projection: Numpad 5", false, false },
+        { "Delete Selected: Delete", false, false },
+        { "Multi-Select: Ctrl + Click", false, false },
+        { "Context Menu: Right Click", false, false },
+        { "Toggle Dimensions (Guided): M", false, false },
+        { "Toggle This Help: F1", false, false },
+    };
+
+    const float paddingX = 10.0f;
+    const float paddingY = 8.0f;
+    const float headerFontSize = 13.0f;
+    const float normalFontSize = 11.0f;
+    const float lineHeight = 15.0f;
+    const float spacerHeight = 6.0f;
+
+    float maxWidth = 0.0f;
+    float contentHeight = 0.0f;
+    for (auto& line : lines)
+    {
+        if (line.text[0] == '\0') { contentHeight += spacerHeight; continue; }
+        float fontSize = line.isHeader ? headerFontSize : normalFontSize;
+        Vector2 size = MeasureThemeText(line.text, fontSize);
+        maxWidth = std::max(maxWidth, size.x);
+        contentHeight += lineHeight;
+    }
+
     const int x = 10;
     const int y = 60;
-    const int w = 350;
-    const int h = 200;
+    const int w = static_cast<int>(maxWidth + paddingX * 2.0f);
+    const int h = static_cast<int>(contentHeight + paddingY * 2.0f);
 
     DrawRectangle(x, y, w, h, GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
     DrawRectangleLines(x, y, w, h, Fade(GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL)), 0.5f));
 
-    int ty = y + 8;
+    float ty = static_cast<float>(y) + paddingY;
+    for (auto& line : lines)
+    {
+        if (line.text[0] == '\0') { ty += spacerHeight; continue; }
 
+        float fontSize = line.isHeader ? headerFontSize : normalFontSize;
+        Color color = line.isHeader
+            ? GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_PRESSED))
+            : (line.isActive ? accent : GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
-
-    DrawThemeText("R3D Camera (Orbit Mode):", (float)x + 8, (float)ty, 12, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_PRESSED)));
-    ty += 20;
-    DrawThemeText("Orbit: Drag MMB", (float)x + 8, (float)ty, 10, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL))); ty += 14;
-    DrawThemeText("Pan: Shift + Drag MMB", (float)x + 8, (float)ty, 10, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL))); ty += 14;
-    DrawThemeText("Zoom: Ctrl+MMB or Wheel", (float)x + 8, (float)ty, 10, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL))); ty += 14;
-
-    ty += 2;
-
+        DrawThemeText(line.text, static_cast<float>(x) + paddingX, ty, fontSize, color);
+        ty += lineHeight;
+    }
 }

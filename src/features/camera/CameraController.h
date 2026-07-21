@@ -7,8 +7,7 @@
 #include <vector>
 #include <memory>
 
-// Draw an on-screen list of the camera controller settings and keybindings
-void drawCameraControllerSettings(void);
+
 
 
 // orbit = move with shift mmb, rotate with mmb, walk = move with wasd, rotate with mouse
@@ -95,12 +94,12 @@ struct ViewportSlot
     bool editable = false;
     bool trackSelection = true;
 
-    // Persistent per-viewport render target — allocated lazily, resized only
-    // when this slot's pixel dimensions actually change (window resize,
-    // split-screen toggle). Never recreated per-frame.
+    float userZoom = 1.0f; // scroll-wheel multiplier, layered over auto-fit baseline
+
     RenderTexture2D target = { 0 };
     int targetWidth = 0;
     int targetHeight = 0;
+
 
     // Ensures `target` matches the requested size, (re)allocating only if needed.
     void ensureTarget(int width, int height)
@@ -125,4 +124,7 @@ struct ViewportSlot
         }
     }
 };
+
+// Draw an on-screen list of the camera controller settings and keybindings
+void drawCameraControllerSettings(cameraController&);
 #endif

@@ -51,8 +51,7 @@ void menuInit() {
     btnPlay = { btnLeft, btnTop, btnWidth, btnHeight };
     btnSave = { btnLeft, btnTop + btnGap, btnWidth, btnHeight };
     btnLoad = { btnLeft, btnTop + 2 * btnGap, btnWidth, btnHeight };
-    btnOptions = { btnLeft, btnTop + 3 * btnGap, btnWidth, btnHeight };
-    btnExit = { btnLeft, btnTop + 4 * btnGap, btnWidth, btnHeight };
+    btnExit = { btnLeft, btnTop + 3 * btnGap, btnWidth, btnHeight };
 }
 
 void menuUnload() {
@@ -76,7 +75,6 @@ void menuDraw() {
     if (GuiButton(btnPlay, "Learn")) sceneManagerChangeScene(sceneId::SCENE_LEARN);
     if (GuiButton(btnSave, "Save Scene")) OpenSaveDialog();
     if (GuiButton(btnLoad, "Load Scene")) OpenLoadDialog();
-    if (GuiButton(btnOptions, "Options")) { sceneManagerChangeScene(sceneId::SCENE_OPTIONS); TraceLog(LOG_INFO, "Clicked %d", pendingScene); }
     if (GuiButton(btnExit, "Exit")) {
         menuUnload();
         exitWindow = true;

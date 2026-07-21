@@ -43,10 +43,9 @@ protected:
 	// Mesh primitive type
 	R3D_PrimitiveType primitiveType = R3D_PRIMITIVE_TRIANGLES;
 
-	R3D_Material* material = NULL; // Initialized in constructor to point to a valid default material
+	R3D_Material material{}; // Initialized in constructor to point to a valid default material
 
 	MaterialType materialType = MATERIAL_NONE;
-
 
 	// Object state
 	bool isSelected = false;
@@ -86,7 +85,11 @@ public:
 	}
 	R3D_Material* getMaterial()
 	{
-		return material;
+		return &material;
+	}
+	const R3D_Material* getMaterial() const
+	{
+		return &material;
 	}
 	// Object Type
 	ObjectType getObjectType() const {
@@ -104,6 +107,10 @@ public:
 		default: return "Unknown";
 		}
 	}
+
+	void setTransparency(float alpha01);
+	float getTransparency() const;
+
 	// Just makes use of MatrixCompose to get the Transform matrix from the transform struct
 	Matrix getMatrix() const {
 		return MatrixCompose(transform.translation, transform.rotation, transform.scale);

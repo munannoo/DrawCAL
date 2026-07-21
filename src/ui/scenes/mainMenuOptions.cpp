@@ -76,7 +76,6 @@ void optionsGraphicsDraw() {
 
 			if (IsWindowFullscreen() == 0) textFullScreen = "Windowed";
 			else textFullScreen = "Fullscreen";
-
 			changeButtonResolution();
 			ShowCursor();
 		}
@@ -128,67 +127,9 @@ void optionsControlsDraw(){
 	UiStyle::DrawBackground();
 	UiStyle::DrawSceneHeader("Controls", "Camera and input help.", btnTop - 68.0f, 50.0f);
 
-	drawCameraControllerSettings();
+	//drawCameraControllerSettings();
 	if (GuiButton(btnBack, "Back")) {
 		pendingOptionScene = optionSceneId::OPTIONS_MENU;
 	}
 }
 void optionsControlsUnload(){}
-
-// Interface
-
-void optionsInterfaceInit() {
-	btnUIScale = { btnLeft, btnTop, btnWidth, btnHeight };
-	btnTheme = { btnLeft, btnTop + 1 * btnGap, btnWidth, btnHeight };
-	btnFontSize = { btnLeft, btnTop + 2 * btnGap, btnWidth, btnHeight };
-	btnBack = { btnLeft, btnTop + 3 * btnGap, btnWidth, btnHeight };
-}
-
-void optionsInterfaceUpdate() {
-	changeTheme();
-}
-
-void optionsInterfaceDraw() {
-	UiStyle::LoadMinimalStyle();
-	UiStyle::DrawBackground();
-	UiStyle::DrawSceneHeader("Interface Settings", "Customize your UI.", btnTop - 68.0f, btnTop - 28.0f);
-
-	if (GuiButton(btnUIScale, "UI SCALE: ")) {
-		// TODO: UI scale settings
-	}
-	
-	if (GuiButton(btnTheme, "Theme: ")) dropdownEditMode = true;
-
-	if (GuiDropdownBox(Rectangle{ btnTheme.x + btnWidth, btnTheme.y, btnTheme.width, btnTheme.height }, themeOptions, &currentThemeIndex, dropdownEditMode)) {
-		dropdownEditMode = !dropdownEditMode;
-	}
-
-	if (!dropdownEditMode) {
-		if (GuiButton(btnFontSize, "Font Size: ")) {
-			// TODO: Font size settings
-		}
-
-		if (GuiButton(btnBack, "Back")) {
-			pendingOptionScene = optionSceneId::OPTIONS_MENU;
-		}
-	}
-}
-
-void optionsInterfaceUnload(){}
-
-void changeTheme() {
-	if (currentThemeIndex != lastThemeIndex) {
-			switch (currentThemeIndex) {
-			case 0:	GuiLoadStyleDefault();  break;
-			case 1: GuiLoadStyleDark(); TraceLog(LOG_INFO, "MyButton clicked"); break;
-			case 2: GuiLoadStyleCyber(); break;
-			case 3: GuiLoadStyleGenesis(); break;
-			case 4: GuiLoadStyleJungle(); break;
-			case 5: GuiLoadStyleAmber(); break;
-				default: break;
-			}
-			lastThemeIndex = currentThemeIndex;
-		changeButtonResolution();
-		optionsInterfaceInit();
-	}
-}

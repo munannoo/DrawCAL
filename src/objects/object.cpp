@@ -56,7 +56,7 @@ shape::shape()
 	mesh{},
 	id(nextId++)
 {
-	material = &defaultMaterial;
+	material = R3D_GetDefaultMaterial();
 }
 
 shape::~shape()
@@ -82,6 +82,20 @@ void clearScene()
 	selectedObjects.clear();
 	activeObject = nullptr;
 }
+void shape::setTransparency(float alpha01)
+{
+	alpha01 = Clamp(alpha01, 0.0f, 1.0f);
+	material.albedo.color.a = static_cast<unsigned char>(alpha01 * 255.0f);
+	material.transparencyMode = (alpha01 >= 0.999f)
+		? R3D_TRANSPARENCY_DISABLED
+		: R3D_TRANSPARENCY_ALPHA;
+}
+
+float shape::getTransparency() const
+{
+	return material.albedo.color.a / 255.0f;
+}
+
 void shape::drawSelectionWireframe(Color color) const
 {
 	if (!getSelected()) return;
@@ -131,15 +145,27 @@ void shape::drawSelectionWireframe(Color color) const
 
 void shape::applyMaterial(MaterialType type)
 {
-	R3D_Material* newMaterial = GetMaterial(type);
-	TraceLog(LOG_INFO, "Old material: %p", (void*)material);
-	TraceLog(LOG_INFO, "New material: %p", (void*)newMaterial);
+	R3D_Material* sourceMaterial = GetMaterial(type);
+	if (sourceMaterial == nullptr) return;
 
-	if (newMaterial == nullptr) return;
+	TraceLog(LOG_INFO, "Old material: %p", (void*)&material);
+	TraceLog(LOG_INFO, "New material: %p", (void*)sourceMaterial);
 
-	materialType = type;
-	material = newMaterial;
-}
+
+		// Preserve this object's own transparency setting across a material-type
+		// switch — the Properties panel's material dropdown and a transparency
+		// slider are independent controls; picking "Metal" shouldn't silently
+		// reset an object back to opaque.
+		const unsigned char preservedAlpha = material.albedo.color.a;
+		const R3D_TransparencyMode preservedMode = material.transparencyMode;
+
+		material = *sourceMaterial; // value copy — this object's own material now
+
+		material.albedo.color.a = preservedAlpha;
+		material.transparencyMode = preservedMode;
+
+		materialType = type;
+	}
 
 BoundingBox shape::getWorldBoundingBox() const
 {
@@ -375,6 +401,7 @@ static Model cylinderModel;
 void initModels()
 {
 	objects.push_back(std::make_unique<cube>());
+	lights.push_back(std::make_unique<Light>(Vector3{ 5.0f, 20.0f, 10.0f }));
 	LoadPBRTextures();
 }
 

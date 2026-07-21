@@ -5,8 +5,8 @@
 #include <r3d.h>
 
 void initgridShader();
-void DrawCameraScene(const Camera3D& camera, Rectangle viewport, RenderTexture2D& target);
-void RenderCameraSceneToTexture(const Camera3D& camera, Rectangle viewport, RenderTexture2D& target);
+void RenderCameraSceneToTexture(const Camera3D& camera, Rectangle viewport, RenderTexture2D& target, bool drawGizmo = true);
+void DrawCameraScene(const Camera3D& camera, Rectangle viewport, RenderTexture2D& target, bool drawGizmo = true);
 
 // The object has no colour by default, if you wish to set colour for the object, you can do so by changing the material albedo
 // Implement later:     material.albedo.color = newColor;

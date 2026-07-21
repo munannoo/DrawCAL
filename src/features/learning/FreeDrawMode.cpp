@@ -37,69 +37,338 @@ void SetGuidedWorkspace(bool guided)
 
 namespace
 {
-    static Rectangle getEditorDockBounds()
+    struct FocusFrame
     {
-        const float width = Clamp(GetScreenWidth() * 0.30f, 370.0f, 430.0f);
-        return { static_cast<float>(GetScreenWidth()) - width, 52.0f, width, static_cast<float>(GetScreenHeight()) - 52.0f };
-    }
+        Vector3 center = { 0.0f, 0.0f, 0.0f };
+        Vector3 halfExtent = { 1.0f, 1.0f, 1.0f };
+    };
+    enum PropertyFloatField
+    {
+        PROPERTY_POSITION_X = 0, PROPERTY_POSITION_Y, PROPERTY_POSITION_Z,
+        PROPERTY_ROTATION_X, PROPERTY_ROTATION_Y, PROPERTY_ROTATION_Z,
+        PROPERTY_SCALE_X, PROPERTY_SCALE_Y, PROPERTY_SCALE_Z,
+        PROPERTY_LIGHT_TARGET_X, PROPERTY_LIGHT_TARGET_Y, PROPERTY_LIGHT_TARGET_Z,
+        PROPERTY_LIGHT_INTENSITY, PROPERTY_LIGHT_RADIUS,
+        PROPERTY_FLOAT_FIELD_COUNT
+    };
+    struct floatFieldState { char text[32] = {}; };
+    enum CameraPropertyField
+    {
+        CAMERA_PROPERTY_FOV = 0, CAMERA_PROPERTY_MOVE_SPEED, CAMERA_PROPERTY_SENSITIVITY,
+        CAMERA_PROPERTY_NEAR, CAMERA_PROPERTY_FAR, CAMERA_PROPERTY_FIELD_COUNT
+    };
+
+
+    // Guided workspace state
+
+    static float guidedZoom[3] = { 1.0f, 1.0f, 1.0f };
+    static RenderTexture2D guidedViewTexture = {};
+    static int guidedViewTextureWidth = 0;
+    static int guidedViewTextureHeight = 0;
+
+
+    // Global transparency toggle
+
+    static bool allObjectsTransparentActive = false;
+    static std::vector<std::pair<unsigned int, float>> preToggleTransparency;
+
+
+    // Property panel editing state
+
+    static floatFieldState propertyFloatFields[PROPERTY_FLOAT_FIELD_COUNT];
+    static int activeFloatField = -1;
+    static Vector2 propertiesPanelScroll = { 0.0f, 0.0f };
+    static bool propertyMaterialDropdownOpen = false;
+    static shape* propertyBoundObject = nullptr;    
+    static Light* propertyBoundLight = nullptr;
+
+
+    // Camera panel editing state
+
+    static floatFieldState cameraPropertyFields[CAMERA_PROPERTY_FIELD_COUNT];
+    static int activeCameraPropertyField = -1;
+    static Vector2 cameraPanelScroll = { 0.0f, 0.0f };
+
+
+    // Workspace panel state
+
+    static Vector2 workspacePanelScroll = { 0.0f, 0.0f };
+
+
+    // Viewport interaction state
+
+    static bool viewportClickCandidate = false;
+    static Vector2 viewportClickStart = { 0.0f, 0.0f };
+    static bool lightTargetPickMode = false;
+    static Light* lightTargetPickLight = nullptr;
+
 
     const float fontSize = static_cast<float>(GuiGetStyle(DEFAULT, TEXT_SIZE));
     const float spacing = static_cast<float>(std::max(0, GuiGetStyle(DEFAULT, TEXT_SPACING)));
     const float editorControlHeight = std::max(27, GuiGetStyle(DEFAULT, TEXT_SIZE) + 11);
 
-    static RenderTexture2D guidedViewTexture = {};
-    static int guidedViewTextureWidth = 0;
-    static int guidedViewTextureHeight = 0;
-
-    struct GuidedObjectFrame
+    // Helper Functions
+    static bool tryParseFloat(const char* text, float& result)
     {
-        Vector3 center = { 0.0f, 0.0f, 0.0f };
-        Vector3 halfExtent = { 1.0f, 1.0f, 1.0f };
-    };
+        if (text == nullptr || text[0] == '\0') return false;
 
-    static GuidedObjectFrame GetGuidedObjectFrame()
+        char* end = nullptr;
+        float parsed = std::strtof(text, &end);
+
+        if (end == text) return false;
+
+        while (*end == ' ' || *end == '\t') end++;
+
+        if (*end != '\0') return false;
+        if (!std::isfinite(parsed)) return false;
+
+        result = parsed;
+        return true;
+    }
+    static void setFloatFieldText(floatFieldState& field, float value) {
+        std::snprintf(field.text, sizeof(field.text), "%.3f", value);
+    }
+    static bool isPropertyEditorActive()
     {
-        shape* target = nullptr;
+        if (propertyMaterialDropdownOpen) return true;
+        if (activeFloatField != -1) return true;
+        if (activeCameraPropertyField != -1) return true;
+        if (freeDrawState.viewDropdownOpen) return true;
+        return false;
+    }
+    static void resetPropertyEditorState()
+    {
+        activeFloatField = -1;
+        for (auto& field : propertyFloatFields) field.text[0] = '\0';
+        propertyMaterialDropdownOpen = false;
+    }
 
-        // Prefer the actively selected object.
-        for (auto& objectPtr : objects)
+    static bool drawFloatPropertyField(Rectangle bounds, int fieldIndex, float& value, float minimum, float maximum)
+    {
+        if (!(fieldIndex >= 0 && fieldIndex < PROPERTY_FLOAT_FIELD_COUNT)) return 0;
+        floatFieldState& field = propertyFloatFields[fieldIndex];
+
+        if (activeFloatField != fieldIndex) setFloatFieldText(field, value);
+
+        bool editing = (activeFloatField == fieldIndex);
+        int result = GuiTextBox(bounds, field.text, static_cast<int>(sizeof(field.text)), editing);
+
+        bool changed = false;
+        if (editing)
         {
-            if (objectPtr && objectPtr->getSelected())
+            float parsedValue = value;
+            if (tryParseFloat(field.text, parsedValue))
             {
-                target = objectPtr.get();
-                break;
+                parsedValue = Clamp(parsedValue, minimum, maximum);
+                if (fabsf(parsedValue - value) > 0.0001f) { value = parsedValue; changed = true; }
             }
         }
 
-        // Imported scenes fall back to the first object in the workspace.
-        if (target == nullptr && !objects.empty())
-            target = objects.front().get();
-
-        if (target == nullptr) return {};
-
-        const Transform& t = target->getTransform();
-
-        const Vector3 scale = { std::fabs(t.scale.x), std::fabs(t.scale.y), std::fabs(t.scale.z) };
-
-        // transform.rotation is a quaternion (see shape::getMatrix()), not Euler degrees,
-        // so we derive the rotation matrix directly from it rather than via MatrixRotateXYZ.
-        const Matrix rotation = QuaternionToMatrix(t.rotation);
-
-        GuidedObjectFrame frame;
-        frame.center = t.translation;
-        // Rotated axis-aligned extents. All built-in meshes have unit local half-extents.
-        frame.halfExtent =
+        if (result != 0)
         {
-            std::fabs(rotation.m0) * scale.x + std::fabs(rotation.m4) * scale.y + std::fabs(rotation.m8) * scale.z,
-            std::fabs(rotation.m1) * scale.x + std::fabs(rotation.m5) * scale.y + std::fabs(rotation.m9) * scale.z,
-            std::fabs(rotation.m2) * scale.x + std::fabs(rotation.m6) * scale.y + std::fabs(rotation.m10) * scale.z
-        };
-        return frame;
+            activeFloatField = editing ? -1 : fieldIndex;
+            editing = (activeFloatField == fieldIndex);
+        }
+
+        if (editing && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(GetMousePosition(), bounds))
+        {
+            float parsedValue = value;
+            if (tryParseFloat(field.text, parsedValue)) { value = Clamp(parsedValue, minimum, maximum); changed = true; }
+            activeFloatField = -1;
+            setFloatFieldText(field, value);
+        }
+
+        return changed;
+    }
+    static bool drawCameraFloatField(Rectangle bounds, int fieldIndex, float& value, float minimum, float maximum)
+    {
+        if (!(fieldIndex >= 0 && fieldIndex < CAMERA_PROPERTY_FIELD_COUNT)) return false;
+        floatFieldState& field = cameraPropertyFields[fieldIndex];
+
+        if (activeCameraPropertyField != fieldIndex) setFloatFieldText(field, value);
+
+        bool editing = (activeCameraPropertyField == fieldIndex);
+        int result = GuiTextBox(bounds, field.text, static_cast<int>(sizeof(field.text)), editing);
+
+        bool changed = false;
+        if (editing)
+        {
+            float parsed = value;
+            if (tryParseFloat(field.text, parsed))
+            {
+                parsed = Clamp(parsed, minimum, maximum);
+                if (fabsf(parsed - value) > 0.0001f) { value = parsed; changed = true; }
+            }
+        }
+
+        if (result != 0)
+        {
+            activeCameraPropertyField = editing ? -1 : fieldIndex;
+            editing = (activeCameraPropertyField == fieldIndex);
+        }
+
+        if (editing && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(GetMousePosition(), bounds))
+        {
+            float parsed = value;
+            if (tryParseFloat(field.text, parsed)) { value = Clamp(parsed, minimum, maximum); changed = true; }
+            activeCameraPropertyField = -1;
+            setFloatFieldText(field, value);
+        }
+
+        return changed;
     }
 
-    static Camera3D MakeGuidedReferenceCamera(Vector3 direction, Vector3 up,
-        Vector3 target, float frameHeight,
-        float distance)
+    // === Shared drawing helpers (used by all panels) ===
+    static void drawSectionDivider(float x, float& y, float width)
+    {
+        using namespace UiStyle;
+        y += kDividerMargin;
+        Color line = GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL));
+        DrawRectangle(static_cast<int>(x), static_cast<int>(y), static_cast<int>(width), 1, Fade(line, 0.6f));
+        y += kDividerMargin;
+    }
+    static void drawSectionLabel(float x, float& y, const char* label)
+    {
+        using namespace UiStyle;
+        DrawRectangle(static_cast<int>(x), static_cast<int>(y + 3), 3, 10, kAccent);
+        DrawTextEx(GuiGetFont(), label, { x + 8.0f, y }, fontSize, spacing,
+            Fade(GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)), 0.85f));
+        y += 19.0f;
+    }
+    static bool DrawVector3Property(const char* title, float x, float& y, float width, Vector3& value, int firstFieldIndex, float minimum, float maximum)
+    {
+        using namespace UiStyle;
+        drawSectionLabel(x, y, title);
+
+        bool changed = 0;
+
+        constexpr float gap = 6.0f;
+        constexpr float labelWidth = 14.0f;
+        const float fieldHeight = editorControlHeight;
+        const float groupWidth = (width - gap * 2.0f) / 3.0f;
+
+        const char* labels[3] = { "X", "Y", "Z" };
+        float* components[3] = { &value.x, &value.y, &value.z };
+
+        for (int i = 0; i < 3; i++) {
+            const float groupX = x + i * (groupWidth + gap);
+            DrawTextEx(GuiGetFont(), labels[i], { groupX, y + 5.0f }, fontSize, spacing,
+                Fade(GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)), 0.7f));
+
+            Rectangle fieldBounds = { groupX + labelWidth, y, groupWidth - labelWidth, fieldHeight };
+
+            bool isActive = (activeFloatField == firstFieldIndex + i);
+            changed |= drawFloatPropertyField(fieldBounds, firstFieldIndex + i, *components[i], minimum, maximum);
+            if (isActive) {
+                DrawRectangleLinesEx({ fieldBounds.x - 1, fieldBounds.y - 1, fieldBounds.width + 2, fieldBounds.height + 2 }, 1.5f, kAccent);
+            }
+        }
+        y += fieldHeight + kFieldGap;
+        return changed;
+    }
+    void updatePropertyBinding(shape* object)
+    {
+        if (propertyBoundObject == object && propertyBoundLight == nullptr) return;
+        propertyBoundObject = object;
+        propertyBoundLight = nullptr;
+        resetPropertyEditorState();
+    }
+    void updatePropertyBinding(Light* light)
+    {
+        if (propertyBoundLight == light && propertyBoundObject == nullptr) return;
+        propertyBoundLight = light;
+        propertyBoundObject = nullptr;
+        resetPropertyEditorState();
+    }
+
+
+    // === Panel layout / geometry ===
+    static Rectangle getEditorDockBounds()
+    {
+        const float width = Clamp(GetScreenWidth() * 0.30f, 370.0f, 430.0f);
+        return { static_cast<float>(GetScreenWidth()) - width, 52.0f, width, static_cast<float>(GetScreenHeight()) - 52.0f };
+    }
+    float getCameraPanelHeight()
+    {
+        using namespace UiStyle;
+        if (!freeDrawState.cameraPanelOpen) return kPanelHeaderHeight;
+
+        float dockHeight = getEditorDockBounds().height;
+        int closedCount = (!freeDrawState.workspacePanelOpen ? 1 : 0) + (!freeDrawState.propertiesPanelOpen ? 1 : 0);
+        float openWeightSum = kCameraWeight
+            + (freeDrawState.workspacePanelOpen ? kWorkspaceWeight : 0.0f)
+            + (freeDrawState.propertiesPanelOpen ? kPropertiesWeight : 0.0f);
+
+        if (openWeightSum <= 0.0f) return kPanelHeaderHeight;
+
+        float available = dockHeight - closedCount * kPanelHeaderHeight;
+        return available * (kCameraWeight / openWeightSum);
+    }
+    float getWorkspacePanelHeight()
+    {
+        using namespace UiStyle;
+        if (!freeDrawState.workspacePanelOpen) return kPanelHeaderHeight;
+
+        float dockHeight = getEditorDockBounds().height;
+        int closedCount = (!freeDrawState.cameraPanelOpen ? 1 : 0) + (!freeDrawState.propertiesPanelOpen ? 1 : 0);
+        float openWeightSum = kWorkspaceWeight + (freeDrawState.cameraPanelOpen ? kCameraWeight : 0.0f) + (freeDrawState.propertiesPanelOpen ? kPropertiesWeight : 0.0f);
+        float available = dockHeight - closedCount * kPanelHeaderHeight;
+
+        if (openWeightSum <= 0.0f) return kPanelHeaderHeight;
+
+        return available * (kWorkspaceWeight / openWeightSum);
+    }
+    Rectangle getCameraPanelBounds() {
+        Rectangle dock = getEditorDockBounds();
+        return { dock.x, dock.y, dock.width, getCameraPanelHeight() };
+    }
+    Rectangle getWorkspacePanelBounds() {
+        Rectangle dock = getEditorDockBounds();
+        return { dock.x, dock.y + getCameraPanelHeight(), dock.width, getWorkspacePanelHeight() };
+    }
+    Rectangle getPropertiesPanelBounds() {
+        Rectangle dock = getEditorDockBounds();
+        float height = freeDrawState.propertiesPanelOpen ? (dock.height - getCameraPanelHeight() - getWorkspacePanelHeight()) : UiStyle::kPanelHeaderHeight;
+        return { dock.x, dock.y + getCameraPanelHeight() + getWorkspacePanelHeight(), dock.width, height };
+    }
+
+    // === Guided workspace (orthographic reference views) ===
+    static FocusFrame ComputeFocusFrame()
+    {
+        bool any = false;
+        Vector3 minB = { FLT_MAX, FLT_MAX, FLT_MAX };
+        Vector3 maxB = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+
+        for (auto& objectPtr : objects)
+        {
+            if (!objectPtr || !objectPtr->getSelected()) continue;
+            any = true;
+
+            const Transform& t = objectPtr->getTransform();
+            const Vector3 scale = { std::fabs(t.scale.x), std::fabs(t.scale.y), std::fabs(t.scale.z) };
+
+            // transform.rotation is a quaternion (see shape::getMatrix()), not Euler degrees,
+            // so we derive the rotation matrix directly from it rather than via MatrixRotateXYZ.
+            const Matrix rotation = QuaternionToMatrix(t.rotation);
+
+            const Vector3 half =
+            {
+                std::fabs(rotation.m0) * scale.x + std::fabs(rotation.m4) * scale.y + std::fabs(rotation.m8) * scale.z,
+                std::fabs(rotation.m1) * scale.x + std::fabs(rotation.m5) * scale.y + std::fabs(rotation.m9) * scale.z,
+                std::fabs(rotation.m2) * scale.x + std::fabs(rotation.m6) * scale.y + std::fabs(rotation.m10) * scale.z
+            };
+
+            minB = Vector3Min(minB, Vector3Subtract(t.translation, half));
+            maxB = Vector3Max(maxB, Vector3Add(t.translation, half));
+        }
+
+        if (!any) return FocusFrame{}; // origin, unit half-extent
+
+        FocusFrame frame;
+        frame.center = Vector3Scale(Vector3Add(minB, maxB), 0.5f);
+        frame.halfExtent = Vector3Scale(Vector3Subtract(maxB, minB), 0.5f);
+        return frame;
+    }    static Camera3D MakeGuidedReferenceCamera(Vector3 direction, Vector3 up, Vector3 target, float frameHeight, float distance)
     {
         Camera3D camera = {};
         camera.position = Vector3Add(target, Vector3Scale(direction, distance));
@@ -108,8 +377,7 @@ namespace
         camera.fovy = std::max(frameHeight, 0.25f);
         camera.projection = CAMERA_ORTHOGRAPHIC;
         return camera;
-    }
-
+    }    
     static void EnsureGuidedViewTexture(int width, int height)
     {
         width = std::max(width, 1);
@@ -135,7 +403,7 @@ namespace
         EnsureGuidedViewTexture(contentWidth, contentHeight);
 
         Rectangle localViewport = { 0, 0, static_cast<float>(contentWidth), static_cast<float>(contentHeight) };
-        RenderCameraSceneToTexture(camera, localViewport, guidedViewTexture);
+        RenderCameraSceneToTexture(camera, localViewport, guidedViewTexture, false);
 
         DrawRectangleRec(bounds, GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
         DrawTexturePro(guidedViewTexture.texture,
@@ -212,25 +480,29 @@ namespace
         const float contentHeight = std::max(1.0f, viewHeight - 31.0f);
         const float aspect = std::max(0.1f, (dock.width - 2.0f) / contentHeight);
         const float padding = 1.18f;
-        const GuidedObjectFrame frame = GetGuidedObjectFrame();
-        const float cameraDistance = 5.0f + 2.0f * std::max(
-            frame.halfExtent.x, std::max(frame.halfExtent.y, frame.halfExtent.z));
+        const FocusFrame frame = ComputeFocusFrame();
+        const float maxExtent = std::max(frame.halfExtent.x, std::max(frame.halfExtent.y, frame.halfExtent.z));
+
+        const float frontDistance = (5.0f + 2.0f * maxExtent) / guidedZoom[0];
+        const float topDistance = (5.0f + 2.0f * maxExtent) / guidedZoom[1];
+        const float sideDistance = (5.0f + 2.0f * maxExtent) / guidedZoom[2];
 
         const float frontHeight = 2.0f * padding *
-            std::max(frame.halfExtent.y, frame.halfExtent.x / aspect);
+            std::max(frame.halfExtent.y, frame.halfExtent.x / aspect) / guidedZoom[0];
         const float topHeight = 2.0f * padding *
-            std::max(frame.halfExtent.z, frame.halfExtent.x / aspect);
+            std::max(frame.halfExtent.z, frame.halfExtent.x / aspect) / guidedZoom[1];
         const float sideHeight = 2.0f * padding *
-            std::max(frame.halfExtent.y, frame.halfExtent.z / aspect);
+            std::max(frame.halfExtent.y, frame.halfExtent.z / aspect) / guidedZoom[2];
+
         const Camera3D front = MakeGuidedReferenceCamera(
             { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f, 0.0f }, frame.center,
-            frontHeight, cameraDistance);
+            frontHeight, frontDistance);
         const Camera3D top = MakeGuidedReferenceCamera(
             { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, -1.0f }, frame.center,
-            topHeight, cameraDistance);
+            topHeight, topDistance);
         const Camera3D side = MakeGuidedReferenceCamera(
             { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, frame.center,
-            sideHeight, cameraDistance);
+            sideHeight, sideDistance);
 
         DrawGuidedReferenceView({ dock.x, dock.y, dock.width, viewHeight }, "Front", front,
             frame.halfExtent.x * 2.0f, frame.halfExtent.y * 2.0f);
@@ -241,6 +513,21 @@ namespace
                                   dock.width, viewHeight }, "Side", side,
             frame.halfExtent.z * 2.0f, frame.halfExtent.y * 2.0f);
 
+        // Scroll-wheel zoom for the three read-only reference panels.
+        Rectangle panelRects[3] = {
+            { dock.x, dock.y, dock.width, viewHeight },
+            { dock.x, dock.y + viewHeight + gap, dock.width, viewHeight },
+            { dock.x, dock.y + (viewHeight + gap) * 2.0f, dock.width, viewHeight }
+        };
+        Vector2 mouse = GetMousePosition();
+        for (int i = 0; i < 3; ++i)
+        {
+            if (!CheckCollisionPointRec(mouse, panelRects[i])) continue;
+            float wheel = GetMouseWheelMove();
+            if (wheel != 0.0f)
+                guidedZoom[i] = Clamp(guidedZoom[i] * (1.0f + wheel * 0.1f), 0.15f, 6.0f);
+        }
+
         const char* shortcut = guidedDimensionsVisible ? "M: Dimensions ON" : "M: Dimensions";
         const Vector2 shortcutSize = MeasureThemeText(shortcut, 12.0f);
         DrawThemeText(shortcut, dock.x + dock.width - shortcutSize.x - 9.0f,
@@ -249,316 +536,55 @@ namespace
         : GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
     }
 
+    // === Camera helpers ===
     cameraController& getEditableCamera() {
         for (auto& slot : freeDrawState.activeViews)
             if (slot.editable) return slot.camera;
         return freeDrawState.activeViews[0].camera; // fallback, should be unreachable
     }
-
-    static std::vector<Rectangle> computeViewportBounds(int count)
+    static void setCameraNavigationMode(cameraController& cam, cameraNavigationMode mode)
     {
-        float w = static_cast<float>(GetScreenWidth());
-        float h = static_cast<float>(GetScreenHeight());
-        std::vector<Rectangle> result;
+        if (cam.getNavigationMode() == mode) return;
 
-        if (count <= 1)
+        cam.setNavigationMode(mode);
+
+        if (mode == cameraNavigationMode::Walk)
+            DisableCursor();   // hides + locks the cursor for FPS-style mouselook
+        else
+            EnableCursor();    // restores the cursor for orbit/UI interaction
+    }
+
+    // === Transparency toggle logic ===
+    static void SetAllObjectsTransparent(bool enable, float alpha)
+    {
+        if (enable)
         {
-            result.push_back({ 0, 0, w, h });
-            return result;
-        }
-
-        float leftW = w / 2.0f;
-        float rightW = w - leftW;
-        int rightCount = count - 1;
-        float rightH = h / static_cast<float>(rightCount);
-
-        result.push_back({ 0, 0, leftW, h });
-        for (int i = 0; i < rightCount; ++i)
-            result.push_back({ leftW, rightH * i, rightW, rightH });
-
-        return result;
-    }
-
-    int selectedIndex = -1;
-
-
-    float getCameraPanelHeight()
-    {
-        using namespace UiStyle;
-        if (!freeDrawState.cameraPanelOpen) return kPanelHeaderHeight;
-
-        float dockHeight = getEditorDockBounds().height;
-        int closedCount = (!freeDrawState.workspacePanelOpen ? 1 : 0) + (!freeDrawState.propertiesPanelOpen ? 1 : 0);
-        float openWeightSum = kCameraWeight
-            + (freeDrawState.workspacePanelOpen ? kWorkspaceWeight : 0.0f)
-            + (freeDrawState.propertiesPanelOpen ? kPropertiesWeight : 0.0f);
-
-        if (openWeightSum <= 0.0f) return kPanelHeaderHeight;
-
-        float available = dockHeight - closedCount * kPanelHeaderHeight;
-        return available * (kCameraWeight / openWeightSum);
-    }
-
-    float getWorkspacePanelHeight()
-    {
-        using namespace UiStyle;
-        if (!freeDrawState.workspacePanelOpen) return kPanelHeaderHeight;
-
-        float dockHeight = getEditorDockBounds().height;
-        int closedCount = (!freeDrawState.cameraPanelOpen ? 1 : 0) + (!freeDrawState.propertiesPanelOpen ? 1 : 0);
-        float openWeightSum = kWorkspaceWeight + (freeDrawState.cameraPanelOpen ? kCameraWeight : 0.0f) + (freeDrawState.propertiesPanelOpen ? kPropertiesWeight : 0.0f);
-        float available = dockHeight - closedCount * kPanelHeaderHeight;
-
-        if (openWeightSum <= 0.0f) return kPanelHeaderHeight;
-
-        return available * (kWorkspaceWeight / openWeightSum);
-    }
-
-    Rectangle getCameraPanelBounds() {
-        Rectangle dock = getEditorDockBounds();
-        return { dock.x, dock.y, dock.width, getCameraPanelHeight() };
-    }
-    Rectangle getWorkspacePanelBounds() {
-        Rectangle dock = getEditorDockBounds();
-        return { dock.x, dock.y + getCameraPanelHeight(), dock.width, getWorkspacePanelHeight() };
-    }
-    Rectangle getPropertiesPanelBounds() {
-        Rectangle dock = getEditorDockBounds();
-        float height = freeDrawState.propertiesPanelOpen ? (dock.height - getCameraPanelHeight() - getWorkspacePanelHeight()) : UiStyle::kPanelHeaderHeight;
-        return { dock.x, dock.y + getCameraPanelHeight() + getWorkspacePanelHeight(), dock.width, height };
-    }
-
-
-    enum PropertyFloatField
-    {
-        PROPERTY_POSITION_X = 0, PROPERTY_POSITION_Y, PROPERTY_POSITION_Z,
-        PROPERTY_ROTATION_X, PROPERTY_ROTATION_Y, PROPERTY_ROTATION_Z,
-        PROPERTY_SCALE_X, PROPERTY_SCALE_Y, PROPERTY_SCALE_Z,
-        PROPERTY_LIGHT_TARGET_X, PROPERTY_LIGHT_TARGET_Y, PROPERTY_LIGHT_TARGET_Z,
-        PROPERTY_LIGHT_INTENSITY, PROPERTY_LIGHT_RADIUS,
-        PROPERTY_FLOAT_FIELD_COUNT
-    };
-
-    struct floatFieldState { char text[32] = {}; };
-
-    static floatFieldState propertyFloatFields[PROPERTY_FLOAT_FIELD_COUNT];
-    static int activeFloatField = -1;
-    static Vector2 cameraPanelScroll = { 0.0f, 0.0f };
-    static Vector2 workspacePanelScroll = { 0.0f, 0.0f };
-    static Vector2 propertiesPanelScroll = { 0.0f, 0.0f };
-
-    enum CameraPropertyField
-    {
-        CAMERA_PROPERTY_FOV = 0, CAMERA_PROPERTY_MOVE_SPEED, CAMERA_PROPERTY_SENSITIVITY,
-        CAMERA_PROPERTY_NEAR, CAMERA_PROPERTY_FAR, CAMERA_PROPERTY_FIELD_COUNT
-    };
-
-
-    // bloc: variables
-    static floatFieldState cameraPropertyFields[CAMERA_PROPERTY_FIELD_COUNT];
-    static int activeCameraPropertyField = -1;
-
-    static bool propertyColorEditMode[4] = { false, false, false, false };
-    static bool propertyMaterialDropdownOpen = false;
-    static bool viewportClickCandidate = false;
-    static Vector2 viewportClickStart = { 0.0f, 0.0f };
-
-    // New: light target picking
-    static bool lightTargetPickMode = false;
-    static Light* lightTargetPickLight = nullptr;
-
-
-    static bool isPropertyEditorActive()
-    {
-        if (propertyMaterialDropdownOpen) return true;
-        if (activeFloatField != -1) return true;
-        if (activeCameraPropertyField != -1) return true;
-        if (freeDrawState.viewDropdownOpen) return true;
-        return false;
-    }
-
-    static bool tryParseFloat(const char* text, float& result)
-    {
-        if (text == nullptr || text[0] == '\0') return false;
-
-        char* end = nullptr;
-        float parsed = std::strtof(text, &end);
-
-        if (end == text) return false;
-
-        while (*end == ' ' || *end == '\t') end++;
-
-        if (*end != '\0') return false;
-        if (!std::isfinite(parsed)) return false;
-
-        result = parsed;
-        return true;
-    }
-
-    static void setFloatFieldText(floatFieldState& field, float value) {
-        std::snprintf(field.text, sizeof(field.text), "%.3f", value);
-    }
-
-    static void resetPropertyEditorState()
-    {
-        activeFloatField = -1;
-        for (auto& field : propertyFloatFields) field.text[0] = '\0';
-        for (bool& editMode : propertyColorEditMode) editMode = false;
-        propertyMaterialDropdownOpen = false;
-    }
-
-    static shape* propertyBoundObject = nullptr;
-    static Light* propertyBoundLight = nullptr;
-
-    void updatePropertyBinding(shape* object)
-    {
-        if (propertyBoundObject == object && propertyBoundLight == nullptr) return;
-        propertyBoundObject = object;
-        propertyBoundLight = nullptr;
-        resetPropertyEditorState();
-    }
-
-    void updatePropertyBinding(Light* light)
-    {
-        if (propertyBoundLight == light && propertyBoundObject == nullptr) return;
-        propertyBoundLight = light;
-        propertyBoundObject = nullptr;
-        resetPropertyEditorState();
-    }
-
-    static bool drawFloatPropertyField(Rectangle bounds, int fieldIndex, float& value, float minimum, float maximum)
-    {
-        if (!(fieldIndex >= 0 && fieldIndex < PROPERTY_FLOAT_FIELD_COUNT)) return 0;
-        floatFieldState& field = propertyFloatFields[fieldIndex];
-
-        if (activeFloatField != fieldIndex) setFloatFieldText(field, value);
-
-        bool editing = (activeFloatField == fieldIndex);
-        int result = GuiTextBox(bounds, field.text, static_cast<int>(sizeof(field.text)), editing);
-
-        bool changed = false;
-        if (editing)
-        {
-            float parsedValue = value;
-            if (tryParseFloat(field.text, parsedValue))
+            preToggleTransparency.clear();
+            preToggleTransparency.reserve(objects.size());
+            for (auto& objectPtr : objects)
             {
-                parsedValue = Clamp(parsedValue, minimum, maximum);
-                if (fabsf(parsedValue - value) > 0.0001f) { value = parsedValue; changed = true; }
+                if (!objectPtr) continue;
+                preToggleTransparency.push_back({ objectPtr->getId(), objectPtr->getTransparency() });
+                objectPtr->setTransparency(alpha);
             }
         }
-
-        if (result != 0)
+        else
         {
-            activeFloatField = editing ? -1 : fieldIndex;
-            editing = (activeFloatField == fieldIndex);
-        }
-
-        if (editing && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(GetMousePosition(), bounds))
-        {
-            float parsedValue = value;
-            if (tryParseFloat(field.text, parsedValue)) { value = Clamp(parsedValue, minimum, maximum); changed = true; }
-            activeFloatField = -1;
-            setFloatFieldText(field, value);
-        }
-
-        return changed;
-    }
-
-    static bool drawCameraFloatField(Rectangle bounds, int fieldIndex, float& value, float minimum, float maximum)
-    {
-        if (!(fieldIndex >= 0 && fieldIndex < CAMERA_PROPERTY_FIELD_COUNT)) return false;
-        floatFieldState& field = cameraPropertyFields[fieldIndex];
-
-        if (activeCameraPropertyField != fieldIndex) setFloatFieldText(field, value);
-
-        bool editing = (activeCameraPropertyField == fieldIndex);
-        int result = GuiTextBox(bounds, field.text, static_cast<int>(sizeof(field.text)), editing);
-
-        bool changed = false;
-        if (editing)
-        {
-            float parsed = value;
-            if (tryParseFloat(field.text, parsed))
+            for (auto& objectPtr : objects)
             {
-                parsed = Clamp(parsed, minimum, maximum);
-                if (fabsf(parsed - value) > 0.0001f) { value = parsed; changed = true; }
+                if (!objectPtr) continue;
+                float restore = 1.0f;
+                for (auto& entry : preToggleTransparency)
+                {
+                    if (entry.first == objectPtr->getId()) { restore = entry.second; break; }
+                }
+                objectPtr->setTransparency(restore);
             }
+            preToggleTransparency.clear();
         }
-
-        if (result != 0)
-        {
-            activeCameraPropertyField = editing ? -1 : fieldIndex;
-            editing = (activeCameraPropertyField == fieldIndex);
-        }
-
-        if (editing && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !CheckCollisionPointRec(GetMousePosition(), bounds))
-        {
-            float parsed = value;
-            if (tryParseFloat(field.text, parsed)) { value = Clamp(parsed, minimum, maximum); changed = true; }
-            activeCameraPropertyField = -1;
-            setFloatFieldText(field, value);
-        }
-
-        return changed;
     }
 
-    static void drawSectionDivider(float x, float& y, float width)
-    {
-        using namespace UiStyle;
-        y += kDividerMargin;
-        Color line = GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL));
-        DrawRectangle(static_cast<int>(x), static_cast<int>(y), static_cast<int>(width), 1, Fade(line, 0.6f));
-        y += kDividerMargin;
-    }
-
-    static void drawSectionLabel(float x, float& y, const char* label)
-    {
-        using namespace UiStyle;
-        DrawRectangle(static_cast<int>(x), static_cast<int>(y + 3), 3, 10, kAccent);
-        DrawTextEx(GuiGetFont(), label, { x + 8.0f, y }, fontSize, spacing,
-            Fade(GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)), 0.85f));
-        y += 19.0f;
-    }
-
-    static bool DrawVector3Property(
-        const char* title, float x, float& y, float width, Vector3& value, int firstFieldIndex, float minimum, float maximum)
-    {
-        using namespace UiStyle;
-        drawSectionLabel(x, y, title);
-
-        bool changed = 0;
-
-        constexpr float gap = 6.0f;
-        constexpr float labelWidth = 14.0f;
-        const float fieldHeight = editorControlHeight;
-        const float groupWidth = (width - gap * 2.0f) / 3.0f;
-
-        const char* labels[3] = { "X", "Y", "Z" };
-        float* components[3] = { &value.x, &value.y, &value.z };
-
-        for (int i = 0; i < 3; i++) {
-            const float groupX = x + i * (groupWidth + gap);
-            DrawTextEx(GuiGetFont(), labels[i], { groupX, y + 5.0f }, fontSize, spacing,
-                Fade(GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)), 0.7f));
-
-            Rectangle fieldBounds = { groupX + labelWidth, y, groupWidth - labelWidth, fieldHeight };
-
-            bool isActive = (activeFloatField == firstFieldIndex + i);
-            changed |= drawFloatPropertyField(fieldBounds, firstFieldIndex + i, *components[i], minimum, maximum);
-            if (isActive) {
-                DrawRectangleLinesEx({ fieldBounds.x - 1, fieldBounds.y - 1, fieldBounds.width + 2, fieldBounds.height + 2 }, 1.5f, kAccent);
-            }
-        }
-        y += fieldHeight + kFieldGap;
-        return changed;
-    }
-
-    bool isPointerOverEditorUi()
-    {
-        if (IsCursorHidden()) return false; // GetMousePosition() is unbounded/meaningless while hidden
-        return CheckCollisionPointRec(GetMousePosition(), getEditorDockBounds());
-    }
-
+    // === Panels ===
     static bool drawPanelFrame(Rectangle bounds, const char* title, bool open)
     {
         using namespace UiStyle;
@@ -730,19 +756,6 @@ namespace
 
         if (!interactive) GuiEnable();
     }
-
-    static void setCameraNavigationMode(cameraController& cam, cameraNavigationMode mode)
-    {
-        if (cam.getNavigationMode() == mode) return;
-
-        cam.setNavigationMode(mode);
-
-        if (mode == cameraNavigationMode::Walk)
-            DisableCursor();   // hides + locks the cursor for FPS-style mouselook
-        else
-            EnableCursor();    // restores the cursor for orbit/UI interaction
-    }
-
     static void drawCameraPanel(bool interactive)
     {
         if (!(interactive || freeDrawState.viewDropdownOpen)) GuiDisable();
@@ -762,10 +775,6 @@ namespace
         const float controlHeight = editorControlHeight;
 
         float pinnedY = panel.y + 39.0f;
-
-        DrawTextEx(GuiGetFont(), TextFormat("Projection: %s", getEditableCamera().getCameraProjection()),
-            { contentX, pinnedY + 5.0f }, fontSize, spacing, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
-        pinnedY += 24.0f;
 
         DrawTextEx(GuiGetFont(), "View", { contentX, pinnedY + 5.0f }, fontSize, spacing, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
@@ -862,8 +871,11 @@ namespace
             Vector3 focus = activeObject ? activeObject->getTransform().translation : Vector3{ 0,0,0 };
 
             front.camera.setView(cameraView::Front, focus);
+            front.camera.getCamera().projection = CAMERA_ORTHOGRAPHIC;
             top.camera.setView(cameraView::Top, focus);
+            top.camera.getCamera().projection = CAMERA_ORTHOGRAPHIC;
             left.camera.setView(cameraView::Left, focus);
+            left.camera.getCamera().projection = CAMERA_ORTHOGRAPHIC;
 
             freeDrawState.activeViews.push_back(front);
             freeDrawState.activeViews.push_back(top);
@@ -883,13 +895,26 @@ namespace
 
         y += controlHeight + 12.0f;
 
+
+        Rectangle transparencyToggleBtn = { fx, y, fw, controlHeight };
+        bool transparencyToggled = allObjectsTransparentActive;
+        GuiToggle(transparencyToggleBtn,
+            transparencyToggled ? "All Objects Transparent: On" : "All Objects Transparent: Off",
+            &transparencyToggled);
+        if (transparencyToggled != allObjectsTransparentActive)
+        {
+            SetAllObjectsTransparent(transparencyToggled, 0.35f);
+            allObjectsTransparentActive = transparencyToggled;
+        }
+        y += controlHeight + 12.0f;
+
         drawSectionDivider(fx, y, fw);
         drawSectionLabel(fx, y, "Navigation");
 
         Rectangle navModeBtn = { fx, y, fw, controlHeight };
         bool orbitMode = (getEditableCamera().getNavigationMode() == cameraNavigationMode::Orbit);
         bool orbitModeToggled = orbitMode;
-        GuiToggle(navModeBtn, orbitMode ? "Mode: Orbit" : "Mode: Walk", & orbitModeToggled);
+        GuiToggle(navModeBtn, orbitMode ? "Mode: Orbit" : "Mode: Walk", &orbitModeToggled);
         if (orbitModeToggled != orbitMode)
         {
             setCameraNavigationMode(getEditableCamera(), orbitModeToggled ? cameraNavigationMode::Orbit : cameraNavigationMode::Walk);
@@ -897,7 +922,7 @@ namespace
         y += controlHeight + 8.0f;
 
         Rectangle projectionBtn = { fx, y, fw, controlHeight };
-        if (GuiButton(projectionBtn, TextFormat("Projection: %s (click to toggle)", getEditableCamera().getCameraProjection())))
+        if (GuiButton(projectionBtn, TextFormat("Projection: %s", getEditableCamera().getCameraProjection())))
         {
             getEditableCamera().toggleProjection();
         }
@@ -1041,7 +1066,8 @@ namespace
         Rectangle scrollBounds = { panel.x, y, panel.width, panel.y + panel.height - y - (controlHeight + 20.0f) };
 
         const float vec3BlockHeight = 19.0f + editorControlHeight + 10.0f + UiStyle::kDividerMargin * 2.0f + 1.0f;
-        const float contentHeight = vec3BlockHeight * 3.0f + 20.0f;
+        const float sliderBlockHeight = 19.0f + editorControlHeight + 10.0f + UiStyle::kDividerMargin * 2.0f + 1.0f;
+        const float contentHeight = vec3BlockHeight * 3.0f + sliderBlockHeight + 20.0f;
 
         Rectangle content = { 0, 0, scrollBounds.width - 16.0f, contentHeight };
         Rectangle view;
@@ -1071,6 +1097,20 @@ namespace
         drawSectionDivider(contentX, sy, sw);
         DrawVector3Property("Scale", contentX, sy, sw, selected->getTransform().scale, PROPERTY_SCALE_X, 0.01f, 10000.0f);
 
+        drawSectionDivider(contentX, sy, sw);
+        drawSectionLabel(contentX, sy, "Transparency");
+
+        float transparency = selected->getTransparency();
+        float newTransparency = transparency;
+        Rectangle transparencySliderBounds = { contentX, sy, sw, editorControlHeight };
+        GuiSlider(transparencySliderBounds, "Opaque", TextFormat("%.0f%%", transparency * 100.0f), &newTransparency, 0.0f, 1.0f);
+        if (fabsf(newTransparency - transparency) > 0.0001f)
+        {
+            selected->setTransparency(newTransparency);
+        }
+        sy += editorControlHeight + UiStyle::kFieldGap;
+
+
         EndScissorMode();
 
         Rectangle deselectButton = { contentX, panel.y + panel.height - editorControlHeight - 10.0f, 110.0f, editorControlHeight };
@@ -1089,7 +1129,7 @@ namespace
 
         struct HintLine { const char* text; };
         HintLine lines[] = {
-			{ isWalkMode ? "Disable Walk Mode: N" : "" },
+            { isWalkMode ? "Disable Walk Mode: N" : "" },
             { "Toggle Help: F1" },
         };
         const int lineCount = static_cast<int>(sizeof(lines) / sizeof(lines[0]));
@@ -1124,6 +1164,74 @@ namespace
             ty += lineHeight;
         }
     }
+
+
+
+
+
+
+    // === Viewport / input ===
+    static std::vector<Rectangle> computeViewportBounds(int count)
+    {
+        float w = static_cast<float>(GetScreenWidth());
+        float h = static_cast<float>(GetScreenHeight());
+        std::vector<Rectangle> result;
+
+        if (count <= 1)
+        {
+            result.push_back({ 0, 0, w, h });
+            return result;
+        }
+
+        float leftW = w / 2.0f;
+        float rightW = w - leftW;
+        int rightCount = count - 1;
+        float rightH = h / static_cast<float>(rightCount);
+
+        result.push_back({ 0, 0, leftW, h });
+        for (int i = 0; i < rightCount; ++i)
+            result.push_back({ leftW, rightH * i, rightW, rightH });
+
+        return result;
+    }
+    bool isPointerOverEditorUi()
+    {
+        if (IsCursorHidden()) return false; // GetMousePosition() is unbounded/meaningless while hidden
+        return CheckCollisionPointRec(GetMousePosition(), getEditorDockBounds());
+    }    static const char* GetViewportLabel(const ViewportSlot& slot, bool isEditableSlot)
+    {
+        const cameraView view = isEditableSlot ? freeDrawState.currentViewIndex : slot.presetView;
+        switch (view)
+        {
+        case cameraView::Free:  return "Free";
+        case cameraView::Front: return "Front";
+        case cameraView::Top:   return "Top";
+        case cameraView::Left:  return "Left";
+        case cameraView::Right: return "Right";
+        default:                return "";
+        }
+    }
+    static void DrawViewportLabel(Rectangle vb, const char* label)
+    {
+        if (label == nullptr || label[0] == '\0') return;
+
+        const Vector2 textSize = MeasureTextEx(GuiGetFont(), label, fontSize, spacing);
+        const float paddingX = 8.0f;
+        const float paddingY = 4.0f;
+        const Rectangle badge = { vb.x + 8.0f, vb.y + 8.0f, textSize.x + paddingX * 2.0f, textSize.y + paddingY * 2.0f };
+
+        DrawRectangleRec(badge, Fade(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)), 0.75f));
+        DrawRectangleLinesEx(badge, 1.0f, Fade(GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL)), 0.8f));
+        DrawTextEx(GuiGetFont(), label, { badge.x + paddingX, badge.y + paddingY }, fontSize, spacing,
+            GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+    }
+
+
+
+
+
+
+
 }
 
 void freeDrawInit() {
@@ -1244,7 +1352,7 @@ void freeDrawUpdate() {
 
         }
     }
-    // --- existing gizmo/selection/camera code continues unchanged below ---
+
     int editableIndex = 0;
 
     for (size_t i = 0; i < freeDrawState.activeViews.size(); ++i)
@@ -1305,10 +1413,24 @@ void freeDrawUpdate() {
         resetPropertyEditorState();
     }
 
-    Vector3 focus = activeObject ? activeObject->getTransform().translation : Vector3{ 0,0,0 };
+    const FocusFrame splitFrame = ComputeFocusFrame();
+    const float splitMaxExtent = std::max(splitFrame.halfExtent.x,
+        std::max(splitFrame.halfExtent.y, splitFrame.halfExtent.z));
+
     for (auto& slot : freeDrawState.activeViews)
-        if (!slot.editable && slot.trackSelection)
-            slot.camera.setView(slot.presetView, focus);
+    {
+        if (slot.editable || !slot.trackSelection) continue;
+
+        slot.camera.setView(slot.presetView, splitFrame.center); // sets direction/up/target
+        Camera3D& cam = slot.camera.getCamera();
+
+        Vector3 direction = Vector3Normalize(Vector3Subtract(cam.position, cam.target));
+        const float distance = (5.0f + 2.0f * splitMaxExtent) / slot.userZoom;
+        cam.position = Vector3Add(cam.target, Vector3Scale(direction, distance));
+
+        if (cam.projection == CAMERA_ORTHOGRAPHIC)
+            cam.fovy = std::max(0.25f, 2.0f * 1.18f * splitMaxExtent / slot.userZoom);
+    }
 
     if (!usingGizmo && !isPointerOverEditorUi())
     {
@@ -1319,6 +1441,21 @@ void freeDrawUpdate() {
             bool overThisViewport = IsCursorHidden() ? slot.editable : CheckCollisionPointRec(mouse, bounds[i]);
             if (slot.editable && !freeDrawState.cameraLocked && overThisViewport)
                 slot.camera.updateCamera();
+        }
+    }
+
+    if (!isPointerOverEditorUi())
+    {
+        Vector2 mouse = GetMousePosition();
+        for (size_t i = 0; i < freeDrawState.activeViews.size(); ++i)
+        {
+            ViewportSlot& slot = freeDrawState.activeViews[i];
+            if (slot.editable) continue;
+            if (i >= bounds.size() || !CheckCollisionPointRec(mouse, bounds[i])) continue;
+
+            float wheel = GetMouseWheelMove();
+            if (wheel != 0.0f)
+                slot.userZoom = Clamp(slot.userZoom * (1.0f + wheel * 0.1f), 0.15f, 6.0f);
         }
     }
 }
@@ -1336,13 +1473,14 @@ void freeDrawDraw() {
         // size actually changed (window resize, split-screen toggle).
         slot.ensureTarget(static_cast<int>(vb.width), static_cast<int>(vb.height));
 
-        DrawCameraScene(slot.camera.getCamera(), vb, slot.target);
+        DrawCameraScene(slot.camera.getCamera(), vb, slot.target, slot.editable);
+        DrawViewportLabel(vb, GetViewportLabel(slot, slot.editable));
     }
 
     const float iconSize = 32.0f;
     Rectangle btnOptionsIcon = { (float)GetScreenWidth() - iconSize - 10.0f, 10.0f, iconSize, iconSize };
     if (GuiButton(btnOptionsIcon, "")) {
-        sceneManagerChangeScene(sceneId::SCENE_OPTIONS);
+        sceneManagerChangeScene(sceneId::SCENE_MENU);
     }
     GuiDrawIcon(ICON_GEAR_BIG, btnOptionsIcon.x, btnOptionsIcon.y, 2, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
@@ -1361,10 +1499,11 @@ void freeDrawDraw() {
         drawWorkspacePanel(CheckCollisionPointRec(GetMousePosition(), getWorkspacePanelBounds()));
         drawCameraPanel(CheckCollisionPointRec(GetMousePosition(), getCameraPanelBounds()));
         drawControlHintsOverlay();
+
     }
     if (freeDrawState.helpTip)
     {
-        drawCameraControllerSettings();
+        drawCameraControllerSettings(getEditableCamera());
     }
 }
 

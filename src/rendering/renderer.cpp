@@ -54,7 +54,7 @@ void drawGrid(const Camera3D &camera) {
 
 }
 
-void RenderCameraSceneToTexture(const Camera3D& camera, Rectangle viewport, RenderTexture2D& target)
+void RenderCameraSceneToTexture(const Camera3D& camera, Rectangle viewport, RenderTexture2D& target, bool drawGizmo)
 {
     Rectangle localViewport = { 0, 0, viewport.width, viewport.height }; // local, not screen-space
 
@@ -69,7 +69,7 @@ void RenderCameraSceneToTexture(const Camera3D& camera, Rectangle viewport, Rend
     BeginTextureMode(target);
     rlViewport(0, 0, (int)viewport.width, (int)viewport.height);
 
-    BeginMode3D(camera);
+       BeginMode3D(camera);
     {
         rlDrawRenderBatchActive();
         rlMatrixMode(RL_PROJECTION);
@@ -88,101 +88,49 @@ void RenderCameraSceneToTexture(const Camera3D& camera, Rectangle viewport, Rend
 
         renderLightObjects();
         drawGrid(camera);
-        drawObjectTransformGizmo(camera, viewport);
+        if (drawGizmo)
+            drawObjectTransformGizmo(camera, viewport);
     }
     EndMode3D();
     EndTextureMode();
 }
 
-void DrawCameraScene(const Camera3D& camera, Rectangle viewport, RenderTexture2D& target)
+void DrawCameraScene(const Camera3D& camera, Rectangle viewport, RenderTexture2D& target, bool drawGizmo)
 {
-    RenderCameraSceneToTexture(camera, viewport, target);
+    RenderCameraSceneToTexture(camera, viewport, target, drawGizmo);
 
     // Screen-space offset only matters here, placing the finished texture on screen.
     DrawTextureRec(target.texture, { 0, 0, viewport.width, -viewport.height },
         { viewport.x, viewport.y }, WHITE);
 }
 
-// render all items
-// render cube
-static void renderCube() {
-	for (auto& obj : objects)
-	{
-		obj->drawShape();
-	}
-	for (const auto& object : objects)
-	{
-		if (object->getSelected())
-		{
-			object->drawSelectionWireframe(YELLOW);  // or whatever color
-		}
-	}
-	//for (int i = 0; i < c; i++) {
-		//cube[i].drawShape();
-		//Color renderColor = Cu[i].color;
-		//renderColor.a = Cu[i].isSelected ? 128 : 255; // changes transparency when objec tis selected
-		//DrawObjectModel(cubeModel, Cu[i], renderColor);
-	//}
+static void renderShapes()
+{
+    for (auto& obj : objects)
+    {
+        obj->drawShape();
+    }
 }
 
-static void renderSelectedObjects() {
-	for (const auto& object : objects)
-	{
-		if (object->getSelected())
-		{
-			object->drawSelectionWireframe(YELLOW);  // or whatever color
-		}
-	}
+static void renderSelectionWireframes()
+{
+    for (const auto& object : objects)
+    {
+        if (object->getSelected())
+        {
+            object->drawSelectionWireframe(YELLOW);
+        }
+    }
 }
 
 void renderLightObjects() {
-	for (const auto& object : lights)
-	{
-		R3D_DrawLightShape(object->getLight());
-	}
+    for (const auto& object : lights)
+    {
+        R3D_DrawLightShape(object->getLight());
+    }
 }
 
 void renderAllObjects() {
-	renderCube();
-	renderSelectedObjects();
-
-	//renderSphere();
-	//renderCylinder();
+    renderShapes();
+    renderSelectionWireframes();
 }
-//render sphere
-//void renderSphere() {
-//    for (int i = 0; i < s; i++) {
-//
-//        if (Sp[i].isLight && Sp[i].lightIndex >= 0) {
-//            SetSceneLightPosition(Sp[i].lightIndex, Sp[i].position);
-//            SetSceneLightProperties(
-//                Sp[i].lightIndex,
-//                Sp[i].color,
-//                Sp[i].lightIntensity,
-//                Sp[i].lightRadius
-//            );
-//
-//            // Draw light marker as unlit bright sphere
-//            DrawSphere(Sp[i].position, Sp[i].scale.x, Sp[i].color);
-//
-//            if (Sp[i].isSelected) {
-//                DrawSphereWires(Sp[i].position, Sp[i].scale.x * 1.15f, 16, 16, WHITE);
-//            }
-//
-//            continue;
-//        }
-//
-//        Color renderColor = Sp[i].color;
-//        renderColor.a = Sp[i].isSelected ? 128 : 255;
-//
-//        DrawObjectModel(sphereModel, Sp[i], renderColor);
-//    }
-//}
-////render cylinder
-//void renderCylinder() {
-//    for (int i = 0; i < y; i++) {
-//        Color renderColor = cy[i].color;
-//        renderColor.a = cy[i].isSelected ? 128 : 255; // changes transparency when objec tis selected
-//        DrawObjectModel(cylinderModel, cy[i], renderColor);
-//    }
-//}

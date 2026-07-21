@@ -21,8 +21,8 @@
 // The count at the end is placed there for ease of count variables and dynamicability
 //
 // if adding anything else, add before count
-enum class sceneId { SCENE_NONE = -1, SCENE_MENU = 0, SCENE_LEARN, SCENE_OPTIONS, SCENE_COUNT };
-enum class learnSceneId { LEARN_NONE = -1, LEARN_MENU = 0, LEARN_FREEDRAW, LEARN_GUIDED, LEARN_TUTORIAL, LEARN_COUNT };
+enum class sceneId { SCENE_NONE = -1, SCENE_MENU = 0, SCENE_LEARN, SCENE_COUNT };
+enum class learnSceneId { LEARN_NONE = -1, LEARN_MENU = 0, LEARN_FREEDRAW, LEARN_GUIDED, LEARN_COUNT };
 enum class optionSceneId { OPTIONS_NONE = -1, OPTIONS_MENU = 0, OPTIONS_GRAPHICS, OPTIONS_CONTROLS, OPTIONS_INTERFACE, OPTIONS_COUNT };
 enum class graphicsSceneId { GRAPHICS_NONE = -1, GRAPHICS_MENU = 0, GRAPHICS_RESOLUTION, GRAPHICS_FULLSCREEN, GRAPHICS_VSYNC, GRAPHICS_COUNT };
 enum class controlsSceneId { CONTROLS_NONE = -1, CONTROLS_MENU = 0, CONTROLS_REMAPPING, CONTROLS_SENSITIVITY, CONTROL_GUIDELINES, CONTROLS_COUNT };
@@ -43,8 +43,8 @@ struct sceneFunctions {
     void (*Unload)();
 };
 
-extern Rectangle btnPlay, btnEditor, btnOptions, btnExit, btnSave, btnLoad;
-extern Rectangle btnFreeDraw, btnGuided, btnTutorial, btnBack;
+extern Rectangle btnPlay, btnEditor, btnExit, btnSave, btnLoad;
+extern Rectangle btnFreeDraw, btnGuided, btnBack;
 extern Rectangle btnGraphics, btnControls, btnInterface;
 extern Rectangle btnResolution, btnVSync, btnFullScreen;
 extern Rectangle btnUIScale, btnTheme, btnFontSize, btnBack;
@@ -55,8 +55,6 @@ extern float btnHeight;
 extern float btnLeft;    
 extern float btnTop;     
 extern float btnGap;     // initialized in sceneManager.cpp
-
-
 
 extern bool sceneInitialized;
   
@@ -72,7 +70,7 @@ void sceneManagerChangeScene(optionSceneId);
 void sceneManagerInit(); // Initialize scene manager, register scenes
 void sceneManagerUpdate(); // Call every frame: runs Update for active scene and performs switchover
 void sceneManagerDraw(); // Call every frame: runs Draw for active scene
-//void sceneManagerUnload(); // Call on exit: runs Unload for the main body, call only at the end of the program
+void sceneManagerUnload(); // Call on exit: runs Unload for the main body, call only at the end of the program
 
 #endif // !SCENE_MANAGER
 
