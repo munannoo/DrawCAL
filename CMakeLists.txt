@@ -68,6 +68,11 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(r3d)
+add_library(sqlite3 STATIC src/data/save_load/sqlite3.c)
+target_include_directories(sqlite3 PUBLIC src/data/save_load)
+if(MSVC)
+    target_compile_definitions(sqlite3 PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
 
 # Link r3d to raylib
 target_link_libraries(r3d PRIVATE raylib)
@@ -88,7 +93,7 @@ target_include_directories(drawcal_app PRIVATE
     src/data/save_load
 )
 
-target_link_libraries(drawcal_app PRIVATE raylib r3d)
+target_link_libraries(drawcal_app PRIVATE raylib r3d sqlite3)
 
 # Output executable as DrawCAL/drawcal/drawcal.exe
 set_target_properties(drawcal_app PROPERTIES

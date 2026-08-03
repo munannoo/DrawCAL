@@ -47,5 +47,6 @@ void freeDrawDraw();
 void freeDrawUnload();
 
 // Guided sessions use the editor without the object-creation context menu.
-void SetGuidedWorkspace(bool guided);
+void SetGuidedWorkspace(bool guided, const char* progressId = nullptr);
+void SaveGuidedWorkspaceProgress();
 #endif // FreeDrawMode_H

@@ -4,12 +4,49 @@
 #include "objects/object.h"
 #include "ui/scenes/sceneManager.h"
 #include "ui/themes/themes.h"
+#include "data/progress/progress.h"
+
+#include <cmath>
 
 static Rectangle cubeBtn;
 static Rectangle sphereBtn;
 static Rectangle cylinderBtn;
 static Rectangle importBtn;
 static Rectangle backBtn;
+
+static const char* GetGuidedProgressId(int objectType)
+{
+    switch (objectType)
+    {
+    case 1: return "guided_cube";
+    case 2: return "guided_sphere";
+    case 3: return "guided_cylinder";
+    default: return nullptr;
+    }
+}
+
+static bool IsValidSavedTransform(const Transform& transform)
+{
+    const float values[] = {
+        transform.translation.x, transform.translation.y, transform.translation.z,
+        transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w,
+        transform.scale.x, transform.scale.y, transform.scale.z
+    };
+
+    for (float value : values)
+        if (!std::isfinite(value)) return false;
+
+    const float rotationLengthSquared =
+        transform.rotation.x * transform.rotation.x +
+        transform.rotation.y * transform.rotation.y +
+        transform.rotation.z * transform.rotation.z +
+        transform.rotation.w * transform.rotation.w;
+
+    return rotationLengthSquared > 0.000001f &&
+        transform.scale.x > 0.0f &&
+        transform.scale.y > 0.0f &&
+        transform.scale.z > 0.0f;
+}
 
 enum GuidedButtonIcon
 {
@@ -37,13 +74,37 @@ static void OpenWorkspaceWithObject(int objectType)
         return;
     }
 
+    const char* progressId = GetGuidedProgressId(objectType);
+    if (newObject != nullptr && progressId != nullptr)
+    {
+        GuidedProgressState defaultState;
+        defaultState.objectType = static_cast<int>(newObject->getObjectType());
+        defaultState.transform = newObject->getTransform();
+        defaultState.materialType = static_cast<int>(newObject->getMaterialType());
+
+        GuidedProgressState restoredState;
+        if (BeginGuidedExercise(progressId, defaultState, restoredState) &&
+            restoredState.objectType == defaultState.objectType &&
+            IsValidSavedTransform(restoredState.transform))
+        {
+            restoredState.transform.rotation = QuaternionNormalize(restoredState.transform.rotation);
+            newObject->setTransform(restoredState.transform);
+
+            if (restoredState.materialType >= static_cast<int>(MATERIAL_NONE) &&
+                restoredState.materialType <= static_cast<int>(MATERIAL_ASPHALT))
+            {
+                newObject->setMaterialType(static_cast<MaterialType>(restoredState.materialType));
+            }
+        }
+    }
+
     lights.push_back(std::make_unique<Light>(
         Vector3{ 6.0f, 20.0f, 10.0f }, Vector3{ 0.0f, 0.0f, 0.0f }, WHITE, R3D_LIGHT_SPOT));
 
     if (newObject != nullptr)
         selectObjects(newObject, false);
 
-    SetGuidedWorkspace(true);
+    SetGuidedWorkspace(true, progressId);
     sceneManagerChangeScene(learnSceneId::LEARN_FREEDRAW);
 }
 

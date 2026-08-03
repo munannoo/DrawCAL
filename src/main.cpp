@@ -1,4 +1,5 @@
 #include "main.h"
+#include "data/progress/progress.h"
 
 int currentResIndex = static_cast<int>(resolutionIndex::RES_720p); // Used Enum from toolbar.h for readibility, better than just a 2
 int lastResIndex = currentResIndex;
@@ -20,6 +21,8 @@ int main()
 
     InitWindow(resolutions[currentResIndex].width, resolutions[currentResIndex].height, "DrawCAL"); 
 
+    InitializeProgressDatabase();
+
 	sceneManagerInit(); // Initialize the scene manager, only needs to be called once
 
     // Main loop (Runs each frame until the window closes)
@@ -35,7 +38,9 @@ int main()
         EndDrawing();
     }
 
+    SaveGuidedWorkspaceProgress();
     sceneManagerUnload();
+    ShutdownProgressDatabase();
 
     CloseWindow();
 

@@ -2,8 +2,10 @@
 #include "raylib.h"
 #include "raygui.h"
 #include "raymath.h"
+#include "data/progress/progress.h"
 #include <vector>
 #include <memory>
+#include <string>
 
 namespace UiStyle
 {
@@ -24,10 +26,55 @@ namespace UiStyle
 
 static bool guidedWorkspace = false;
 static bool guidedDimensionsVisible = false;
+static std::string guidedProgressId;
+static double lastGuidedProgressSaveTime = 0.0;
+static GuidedProgressState lastSavedGuidedState;
+static bool hasLastSavedGuidedState = false;
 
-void SetGuidedWorkspace(bool guided)
+static GuidedProgressState CaptureGuidedState(const shape& object)
 {
+    GuidedProgressState state;
+    state.objectType = static_cast<int>(object.getObjectType());
+    state.transform = object.getTransform();
+    state.materialType = static_cast<int>(object.getMaterialType());
+    return state;
+}
+
+static bool GuidedStatesMatch(const GuidedProgressState& left, const GuidedProgressState& right)
+{
+    return left.objectType == right.objectType &&
+        left.materialType == right.materialType &&
+        Vector3Equals(left.transform.translation, right.transform.translation) &&
+        QuaternionEquals(left.transform.rotation, right.transform.rotation) &&
+        Vector3Equals(left.transform.scale, right.transform.scale);
+}
+
+void SaveGuidedWorkspaceProgress()
+{
+    if (!guidedWorkspace || guidedProgressId.empty() || objects.empty()) return;
+
+    shape* guidedObject = objects.front().get();
+    if (guidedObject == nullptr) return;
+
+    const GuidedProgressState currentState = CaptureGuidedState(*guidedObject);
+    if (hasLastSavedGuidedState && GuidedStatesMatch(currentState, lastSavedGuidedState)) return;
+
+    if (SaveGuidedProgress(guidedProgressId, currentState))
+    {
+        lastSavedGuidedState = currentState;
+        hasLastSavedGuidedState = true;
+    }
+}
+
+void SetGuidedWorkspace(bool guided, const char* progressId)
+{
+    if (guidedWorkspace && !guided) SaveGuidedWorkspaceProgress();
+
     guidedWorkspace = guided;
+    guidedProgressId = (guided && progressId != nullptr) ? progressId : "";
+    lastGuidedProgressSaveTime = GetTime();
+    hasLastSavedGuidedState = false;
+
     if (guided)
     {
         freeDrawState.mouseButtonPressed = false;
@@ -1261,6 +1308,14 @@ void freeDrawInit() {
 void freeDrawUpdate() {
 
     if (!freeDrawState.initiliased) return;
+
+    if (guidedWorkspace && !guidedProgressId.empty() &&
+        GetTime() - lastGuidedProgressSaveTime >= 0.5)
+    {
+        SaveGuidedWorkspaceProgress();
+        lastGuidedProgressSaveTime = GetTime();
+    }
+
     if (guidedWorkspace && IsKeyPressed(KEY_M))
         guidedDimensionsVisible = !guidedDimensionsVisible;
 
@@ -1508,6 +1563,7 @@ void freeDrawDraw() {
 }
 
 void freeDrawUnload() {
+    SaveGuidedWorkspaceProgress();
     freeDrawState.initiliased = false;
     UnloadTransformGizmo();
     if (guidedViewTexture.id != 0) { UnloadRenderTexture(guidedViewTexture); guidedViewTexture = {}; guidedViewTextureWidth = guidedViewTextureHeight = 0; }
