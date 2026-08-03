@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+#include <set>
 #include <tuple>
 #include <vector>
 #include <memory>
@@ -387,210 +388,118 @@ namespace
         guidedViewTextureHeight = height;
     }
 
-    struct GuidedDimensionSegment
-    {
-        Vector3 start;
-        Vector3 end;
-        Vector3 objectCenter;
-        unsigned int objectId;
-    };
+    struct GuidedVertex { Vector3 local; Vector3 world; };
+    struct GuidedDimension { Vector3 start; Vector3 end; Vector3 center; unsigned int objectId; };
+    struct ScreenDimension { Vector2 start; Vector2 end; Vector2 center; float value; unsigned int objectId; };
 
-    struct GuidedMeshEdge
+    static std::vector<GuidedVertex> GetUniqueVertices(const shape& object, std::vector<int>& vertexMap)
     {
-        int start = -1;
-        int end = -1;
-        std::vector<Vector3> faceNormals;
-    };
-
-    static std::vector<Vector3> GetWeldedWorldVertices(const shape& object,
-        std::vector<int>* sourceToWelded = nullptr)
-    {
-        constexpr double weldPrecision = 10000.0;
-        std::vector<Vector3> welded;
-        std::map<std::tuple<long long, long long, long long>, int> weldedLookup;
-        if (sourceToWelded != nullptr)
-            sourceToWelded->assign(object.getVertexCount(), -1);
+        constexpr double precision = 10000.0;
+        std::vector<GuidedVertex> vertices;
+        std::map<std::tuple<long long, long long, long long>, int> uniquePositions;
+        vertexMap.resize(object.getVertexCount());
 
         for (int i = 0; i < object.getVertexCount(); ++i)
         {
-            const Vector3 vertex = object.getVertexWorldPosition(i);
+            const Vector3 local = object.getVertexLocalPosition(i);
             const auto key = std::make_tuple(
-                static_cast<long long>(std::llround(vertex.x * weldPrecision)),
-                static_cast<long long>(std::llround(vertex.y * weldPrecision)),
-                static_cast<long long>(std::llround(vertex.z * weldPrecision)));
-            auto existing = weldedLookup.find(key);
-            int weldedIndex;
-            if (existing != weldedLookup.end())
+                std::llround(local.x * precision),
+                std::llround(local.y * precision),
+                std::llround(local.z * precision));
+            auto found = uniquePositions.find(key);
+            if (found == uniquePositions.end())
             {
-                weldedIndex = existing->second;
+                const int index = static_cast<int>(vertices.size());
+                uniquePositions[key] = index;
+                vertices.push_back({ local, object.getVertexWorldPosition(i) });
+                vertexMap[i] = index;
             }
-            else
-            {
-                weldedIndex = static_cast<int>(welded.size());
-                welded.push_back(vertex);
-                weldedLookup.emplace(key, weldedIndex);
-            }
-            if (sourceToWelded != nullptr) (*sourceToWelded)[i] = weldedIndex;
+            else vertexMap[i] = found->second;
         }
-        return welded;
+        return vertices;
     }
 
-    static Vector3 AverageVertices(const std::vector<Vector3>& vertices)
+    static Vector3 GetVertexCenter(const std::vector<GuidedVertex>& vertices)
     {
         Vector3 center = Vector3Zero();
-        if (vertices.empty()) return center;
-        for (const Vector3 vertex : vertices) center = Vector3Add(center, vertex);
-        return Vector3Scale(center, 1.0f / static_cast<float>(vertices.size()));
+        for (const GuidedVertex& vertex : vertices) center = Vector3Add(center, vertex.world);
+        return vertices.empty() ? center : Vector3Scale(center, 1.0f / vertices.size());
     }
 
-    static void AddGuidedFeatureEdges(const shape& object, const Camera3D& camera,
-        std::vector<GuidedDimensionSegment>& dimensions)
+    static void AddMeshSides(const shape& object, std::vector<GuidedDimension>& dimensions)
     {
-        std::vector<int> sourceToWelded;
-        const std::vector<Vector3> vertices = GetWeldedWorldVertices(object, &sourceToWelded);
-        if (vertices.size() < 2) return;
+        std::vector<int> vertexMap;
+        const std::vector<GuidedVertex> vertices = GetUniqueVertices(object, vertexMap);
+        const R3D_MeshData& mesh = object.getMeshData();
+        std::set<std::pair<int, int>> edges;
 
-        const R3D_MeshData& meshData = object.getMeshData();
-        std::map<std::pair<int, int>, GuidedMeshEdge> edges;
-
-        const auto addEdge = [&](int first, int second, Vector3 faceNormal)
+        const auto addEdge = [&](int a, int b)
         {
-            if (first == second) return;
-            const std::pair<int, int> key = std::minmax(first, second);
-            GuidedMeshEdge& edge = edges[key];
-            edge.start = key.first;
-            edge.end = key.second;
-            edge.faceNormals.push_back(faceNormal);
+            if (a < 0 || b < 0 || a >= mesh.vertexCount || b >= mesh.vertexCount) return;
+            a = vertexMap[a]; b = vertexMap[b];
+            if (a != b) edges.insert(std::minmax(a, b));
+        };
+        const auto addTriangle = [&](int a, int b, int c)
+        {
+            addEdge(a, b); addEdge(b, c); addEdge(c, a);
         };
 
-        const auto addTriangle = [&](int sourceA, int sourceB, int sourceC)
-        {
-            if (sourceA < 0 || sourceB < 0 || sourceC < 0 ||
-                sourceA >= meshData.vertexCount || sourceB >= meshData.vertexCount ||
-                sourceC >= meshData.vertexCount)
-                return;
-
-            const int a = sourceToWelded[sourceA];
-            const int b = sourceToWelded[sourceB];
-            const int c = sourceToWelded[sourceC];
-            if (a == b || b == c || c == a) return;
-
-            Vector3 normal = Vector3CrossProduct(
-                Vector3Subtract(vertices[b], vertices[a]),
-                Vector3Subtract(vertices[c], vertices[a]));
-            if (Vector3LengthSqr(normal) <= 0.00000001f) return;
-            normal = Vector3Normalize(normal);
-
-            addEdge(a, b, normal);
-            addEdge(b, c, normal);
-            addEdge(c, a, normal);
-        };
-
-        if (meshData.indices != nullptr && meshData.indexCount >= 3)
-        {
-            for (int i = 0; i + 2 < meshData.indexCount; i += 3)
-                addTriangle(meshData.indices[i], meshData.indices[i + 1], meshData.indices[i + 2]);
-        }
+        if (mesh.indices != nullptr)
+            for (int i = 0; i + 2 < mesh.indexCount; i += 3)
+                addTriangle(mesh.indices[i], mesh.indices[i + 1], mesh.indices[i + 2]);
         else
-        {
-            for (int i = 0; i + 2 < meshData.vertexCount; i += 3)
+            for (int i = 0; i + 2 < mesh.vertexCount; i += 3)
                 addTriangle(i, i + 1, i + 2);
-        }
 
-        const Vector3 viewToCamera = Vector3Normalize(Vector3Subtract(camera.position, camera.target));
-        const Vector3 objectCenter = AverageVertices(vertices);
-        constexpr float coplanarNormalDot = 0.995f;
-
-        for (const auto& entry : edges)
+        const Vector3 center = GetVertexCenter(vertices);
+        for (const auto [a, b] : edges)
         {
-            const GuidedMeshEdge& edge = entry.second;
-            bool featureEdge = edge.faceNormals.size() == 1;
-            bool touchesVisibleFace = false;
-
-            for (size_t i = 0; i < edge.faceNormals.size(); ++i)
+            // A cube side changes on exactly one local axis. This removes face diagonals.
+            if (object.getObjectType() == ObjectType::CUBE)
             {
-                touchesVisibleFace |= Vector3DotProduct(edge.faceNormals[i], viewToCamera) > 0.01f;
-                for (size_t j = i + 1; j < edge.faceNormals.size(); ++j)
-                {
-                    if (Vector3DotProduct(edge.faceNormals[i], edge.faceNormals[j]) < coplanarNormalDot)
-                        featureEdge = true;
-                }
+                const Vector3 difference = Vector3Subtract(vertices[a].local, vertices[b].local);
+                const int changedAxes = (std::fabs(difference.x) > 0.0001f) +
+                    (std::fabs(difference.y) > 0.0001f) + (std::fabs(difference.z) > 0.0001f);
+                if (changedAxes != 1) continue;
             }
-
-            if (!featureEdge || !touchesVisibleFace) continue;
-            dimensions.push_back({ vertices[edge.start], vertices[edge.end], objectCenter, object.getId() });
+            dimensions.push_back({ vertices[a].world, vertices[b].world, center, object.getId() });
         }
     }
 
-    static void AddCurvedObjectSpans(const shape& object, const Camera3D& camera,
-        int viewportWidth, int viewportHeight, std::vector<GuidedDimensionSegment>& dimensions)
+    static void AddCurvedSpans(const shape& object, const Camera3D& camera,
+        int width, int height, std::vector<GuidedDimension>& dimensions)
     {
-        const std::vector<Vector3> vertices = GetWeldedWorldVertices(object);
-        if (vertices.size() < 2) return;
+        std::vector<int> unusedMap;
+        const std::vector<GuidedVertex> vertices = GetUniqueVertices(object, unusedMap);
+        std::vector<Vector2> points;
+        for (const GuidedVertex& vertex : vertices)
+            points.push_back(GetWorldToScreenEx(vertex.world, camera, width, height));
 
-        std::vector<Vector2> projected;
-        projected.reserve(vertices.size());
-        for (const Vector3 vertex : vertices)
-            projected.push_back(GetWorldToScreenEx(vertex, camera, viewportWidth, viewportHeight));
-
-        const Vector3 objectCenter = AverageVertices(vertices);
-        const auto addSpan = [&](bool horizontal)
+        const Vector3 center = GetVertexCenter(vertices);
+        for (int axis = 0; axis < 2; ++axis)
         {
-            float minimum = FLT_MAX;
-            float maximum = -FLT_MAX;
-            for (const Vector2 point : projected)
-            {
-                const float coordinate = horizontal ? point.x : point.y;
-                minimum = std::min(minimum, coordinate);
-                maximum = std::max(maximum, coordinate);
-            }
-
-            const float tolerance = std::max(0.75f, (maximum - minimum) * 0.01f);
-            int bestStart = -1;
-            int bestEnd = -1;
-            float bestPerpendicularDifference = FLT_MAX;
-            for (int i = 0; i < static_cast<int>(projected.size()); ++i)
-            {
-                const float firstCoordinate = horizontal ? projected[i].x : projected[i].y;
-                if (std::fabs(firstCoordinate - minimum) > tolerance) continue;
-                for (int j = 0; j < static_cast<int>(projected.size()); ++j)
+            float bestScore = -FLT_MAX;
+            int bestA = -1, bestB = -1;
+            for (int a = 0; a < static_cast<int>(points.size()); ++a)
+                for (int b = a + 1; b < static_cast<int>(points.size()); ++b)
                 {
-                    const float secondCoordinate = horizontal ? projected[j].x : projected[j].y;
-                    if (std::fabs(secondCoordinate - maximum) > tolerance) continue;
-                    const float difference = horizontal
-                        ? std::fabs(projected[i].y - projected[j].y)
-                        : std::fabs(projected[i].x - projected[j].x);
-                    if (difference < bestPerpendicularDifference)
-                    {
-                        bestPerpendicularDifference = difference;
-                        bestStart = i;
-                        bestEnd = j;
-                    }
+                    const float mainDistance = axis == 0 ? std::fabs(points[a].x - points[b].x)
+                                                         : std::fabs(points[a].y - points[b].y);
+                    const float crossDistance = axis == 0 ? std::fabs(points[a].y - points[b].y)
+                                                          : std::fabs(points[a].x - points[b].x);
+                    const float score = mainDistance - crossDistance * 4.0f;
+                    if (score > bestScore) { bestScore = score; bestA = a; bestB = b; }
                 }
-            }
-
-            if (bestStart >= 0 && bestEnd >= 0 && bestStart != bestEnd)
-                dimensions.push_back({ vertices[bestStart], vertices[bestEnd], objectCenter, object.getId() });
-        };
-
-        addSpan(true);
-        addSpan(false);
+            if (bestA >= 0)
+                dimensions.push_back({ vertices[bestA].world, vertices[bestB].world, center, object.getId() });
+        }
     }
-
-    struct ScreenDimensionSegment
-    {
-        Vector2 start;
-        Vector2 end;
-        Vector2 objectCenter;
-        float value;
-        unsigned int objectId;
-    };
 
     static void DrawGuidedSideDimensions(const Camera3D& camera, Rectangle content)
     {
         const int viewportWidth = std::max(1, static_cast<int>(content.width));
         const int viewportHeight = std::max(1, static_cast<int>(content.height));
-        std::vector<GuidedDimensionSegment> dimensions;
+        std::vector<GuidedDimension> dimensions;
 
         for (const auto& objectPtr : objects)
         {
@@ -598,18 +507,17 @@ namespace
 
             if (objectPtr->getObjectType() != ObjectType::SPHERE &&
                 objectPtr->getObjectType() != ObjectType::CYLINDER)
-                AddGuidedFeatureEdges(*objectPtr, camera, dimensions);
-            if (objectPtr->getObjectType() == ObjectType::SPHERE ||
-                objectPtr->getObjectType() == ObjectType::CYLINDER)
-                AddCurvedObjectSpans(*objectPtr, camera, viewportWidth, viewportHeight, dimensions);
+                AddMeshSides(*objectPtr, dimensions);
+            else AddCurvedSpans(*objectPtr, camera, viewportWidth, viewportHeight, dimensions);
         }
 
-        std::vector<ScreenDimensionSegment> screenDimensions;
-        for (const GuidedDimensionSegment& dimension : dimensions)
+        std::vector<ScreenDimension> screenDimensions;
+        std::set<std::tuple<int, int, int, int, unsigned int>> projectedEdges;
+        for (const GuidedDimension& dimension : dimensions)
         {
             Vector2 start = GetWorldToScreenEx(dimension.start, camera, viewportWidth, viewportHeight);
             Vector2 end = GetWorldToScreenEx(dimension.end, camera, viewportWidth, viewportHeight);
-            Vector2 center = GetWorldToScreenEx(dimension.objectCenter, camera, viewportWidth, viewportHeight);
+            Vector2 center = GetWorldToScreenEx(dimension.center, camera, viewportWidth, viewportHeight);
             start = Vector2Add(start, { content.x, content.y });
             end = Vector2Add(end, { content.x, content.y });
             center = Vector2Add(center, { content.x, content.y });
@@ -617,24 +525,18 @@ namespace
             const float screenLength = Vector2Distance(start, end);
             if (screenLength < 28.0f) continue;
 
-            bool duplicate = false;
-            for (const ScreenDimensionSegment& existing : screenDimensions)
-            {
-                if (existing.objectId != dimension.objectId) continue;
-                const bool sameDirection = Vector2DistanceSqr(start, existing.start) < 9.0f &&
-                    Vector2DistanceSqr(end, existing.end) < 9.0f;
-                const bool reverseDirection = Vector2DistanceSqr(start, existing.end) < 9.0f &&
-                    Vector2DistanceSqr(end, existing.start) < 9.0f;
-                if (sameDirection || reverseDirection) { duplicate = true; break; }
-            }
-            if (duplicate) continue;
+            if (start.x > end.x || (start.x == end.x && start.y > end.y)) std::swap(start, end);
+            const auto edgeKey = std::make_tuple(
+                static_cast<int>(start.x / 3.0f), static_cast<int>(start.y / 3.0f),
+                static_cast<int>(end.x / 3.0f), static_cast<int>(end.y / 3.0f), dimension.objectId);
+            if (!projectedEdges.insert(edgeKey).second) continue;
 
             screenDimensions.push_back({ start, end, center,
                 Vector3Distance(dimension.start, dimension.end), dimension.objectId });
         }
 
         std::sort(screenDimensions.begin(), screenDimensions.end(),
-            [](const ScreenDimensionSegment& a, const ScreenDimensionSegment& b)
+            [](const ScreenDimension& a, const ScreenDimension& b)
             {
                 return Vector2DistanceSqr(a.start, a.end) > Vector2DistanceSqr(b.start, b.end);
             });
@@ -643,7 +545,7 @@ namespace
         const Color labelBackground = Fade(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)), 0.92f);
         std::map<unsigned int, int> dimensionsPerObject;
 
-        for (const ScreenDimensionSegment& dimension : screenDimensions)
+        for (const ScreenDimension& dimension : screenDimensions)
         {
             if (dimensionsPerObject[dimension.objectId] >= 8) continue;
             dimensionsPerObject[dimension.objectId]++;
@@ -654,7 +556,7 @@ namespace
             direction = Vector2Scale(direction, 1.0f / length);
             Vector2 normal = { -direction.y, direction.x };
             const Vector2 midpoint = Vector2Scale(Vector2Add(dimension.start, dimension.end), 0.5f);
-            if (Vector2DotProduct(normal, Vector2Subtract(midpoint, dimension.objectCenter)) < 0.0f)
+            if (Vector2DotProduct(normal, Vector2Subtract(midpoint, dimension.center)) < 0.0f)
                 normal = Vector2Negate(normal);
 
             const Vector2 offset = Vector2Scale(normal, 10.0f);
@@ -667,16 +569,9 @@ namespace
             DrawLineEx(dimension.end, lineEnd, 1.0f, dimensionColor);
             DrawLineEx(lineStart, lineEnd, 1.5f, dimensionColor);
 
-            const float arrowLength = 5.0f;
-            const float arrowWidth = 3.0f;
-            DrawTriangle(lineStart,
-                Vector2Subtract(Vector2Add(lineStart, Vector2Scale(direction, arrowLength)), Vector2Scale(normal, arrowWidth)),
-                Vector2Add(Vector2Add(lineStart, Vector2Scale(direction, arrowLength)), Vector2Scale(normal, arrowWidth)),
-                dimensionColor);
-            DrawTriangle(lineEnd,
-                Vector2Add(Vector2Subtract(lineEnd, Vector2Scale(direction, arrowLength)), Vector2Scale(normal, arrowWidth)),
-                Vector2Subtract(Vector2Subtract(lineEnd, Vector2Scale(direction, arrowLength)), Vector2Scale(normal, arrowWidth)),
-                dimensionColor);
+            const Vector2 tick = Vector2Scale(normal, 4.0f);
+            DrawLineEx(Vector2Subtract(lineStart, tick), Vector2Add(lineStart, tick), 2.0f, dimensionColor);
+            DrawLineEx(Vector2Subtract(lineEnd, tick), Vector2Add(lineEnd, tick), 2.0f, dimensionColor);
 
             const char* label = TextFormat("%.2f units", dimension.value);
             const Vector2 textSize = MeasureThemeText(label, 12.0f);
