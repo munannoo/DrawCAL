@@ -20,24 +20,6 @@ static void MoveSelectedLights(Vector3 delta)
     }
 }
 
-// Rotates each selected light's direction (position -> target) around its
-// own position. Position itself doesn't move.
-static void RotateSelectedLightsAxis(Vector3 rotationDeltaDeg)
-{
-    Vector3 rad = Vector3Scale(rotationDeltaDeg, DEG2RAD);
-    Quaternion deltaRotation = QuaternionFromEuler(rad.x, rad.y, rad.z);
-
-    for (Light* lightPtr : selectedLights)
-    {
-        Vector3 position = lightPtr->getPosition();
-        Vector3 direction = Vector3RotateByQuaternion(Vector3Subtract(lightPtr->getTarget(), position), deltaRotation);
-        lightPtr->setTarget(Vector3Add(position, direction));
-    }
-}
-
-
-
-
 typedef struct GizmoDimensions {
     float size;
     float objectRadius;
@@ -49,9 +31,9 @@ typedef struct GizmoDimensions {
     float axisPickRadius;
     float coneRadius;
     float cubeSize;
-    float ringOuterX;
-    float ringOuterY;
-    float ringOuterZ;
+    float ringRadiusX; // ring that rotates around world X
+    float ringRadiusY; // ring that rotates around world Y
+    float ringRadiusZ; // ring that rotates around world Z
     float ringPickPixels;
 } GizmoDimensions;
 
@@ -60,10 +42,16 @@ static GizmoDimensions GetGizmoDimensions(float selectedMaxScale)
     GizmoDimensions dims = { 0 };
     dims.size = Clamp(1.0f + (selectedMaxScale - 1.0f) * 0.25f, 0.9f, 6.0f);
     dims.objectRadius = fmaxf(selectedMaxScale * 1.25f, 1.1f);
-    dims.ringOuterX = dims.objectRadius + 0.55f * dims.size;
-    dims.ringOuterY = dims.objectRadius + 0.78f * dims.size;
-    dims.ringOuterZ = dims.objectRadius + 1.01f * dims.size;
-    float outerRing = dims.ringOuterZ;
+
+    float innerRadius = dims.objectRadius + 0.55f * dims.size;
+    float midRadius = dims.objectRadius + 0.78f * dims.size;
+    float outerRadius = dims.objectRadius + 1.01f * dims.size;
+
+    dims.ringRadiusZ = innerRadius;
+    dims.ringRadiusY = midRadius;
+    dims.ringRadiusX = outerRadius;
+
+    float outerRing = outerRadius; // for arrow placement below
     dims.arrowStart = outerRing + 0.35f * dims.size;
     dims.arrowLength = dims.arrowStart + 1.45f * dims.size;
     dims.arrowTipEnd = dims.arrowLength + 0.45f * dims.size;
@@ -150,19 +138,27 @@ static void ScaleSelectedObjects(Vector3 scaleDelta)
 
 // Rotation deltas here are in degrees (kept consistent with the old API); shape
 // stores rotation as a quaternion, so we round-trip through Euler degrees.
-static void RotateSelectedObjectsAxis(Vector3 rotationDeltaDeg)
+static void RotateSelectedObjectsAxis(Vector3 axis, float angleDeg)
 {
+    Quaternion delta = QuaternionFromAxisAngle(axis, angleDeg * DEG2RAD);
     for (shape* obj : selectedObjects)
     {
         Transform t = obj->getTransform();
-        Vector3 eulerDeg = Vector3Scale(QuaternionToEuler(t.rotation), RAD2DEG);
-        eulerDeg = Vector3Add(eulerDeg, rotationDeltaDeg);
-        Vector3 eulerRad = Vector3Scale(eulerDeg, DEG2RAD);
-        t.rotation = QuaternionFromEuler(eulerRad.x, eulerRad.y, eulerRad.z);
+        t.rotation = QuaternionNormalize(QuaternionMultiply(delta, t.rotation)); // world-space delta
         obj->setTransform(t);
     }
 }
 
+static void RotateSelectedLightsAxis(Vector3 axis, float angleDeg)
+{
+    Quaternion delta = QuaternionFromAxisAngle(axis, angleDeg * DEG2RAD);
+    for (Light* lightPtr : selectedLights)
+    {
+        Vector3 position = lightPtr->getPosition();
+        Vector3 direction = Vector3RotateByQuaternion(Vector3Subtract(lightPtr->getTarget(), position), delta);
+        lightPtr->setTarget(Vector3Add(position, direction));
+    }
+}
 // --- Screen-space picking, now viewport-aware instead of assuming full window ---
 
 static float DistancePointToSegment(Vector2 point, Vector2 start, Vector2 end)
@@ -236,16 +232,19 @@ static GizmoState GetClickedRing(Camera3D camera, Rectangle viewport, Vector2 mo
     float closestRingDistance = dims.ringPickPixels;
     GizmoState closestRing = GIZMO_NONE;
 
+    // Y-Z plane -> normal X -> rotates around X
     float ringDistance = GetRingScreenDistance(camera, viewport, mouseLocal, center,
-        { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, dims.ringOuterX);
+        { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, dims.ringRadiusX);
     if (ringDistance < closestRingDistance) { closestRingDistance = ringDistance; closestRing = GIZMO_ROTATE_X; }
 
+    // X-Z plane -> normal Y -> rotates around Y
     ringDistance = GetRingScreenDistance(camera, viewport, mouseLocal, center,
-        { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, dims.ringOuterY);
+        { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, dims.ringRadiusY);
     if (ringDistance < closestRingDistance) { closestRingDistance = ringDistance; closestRing = GIZMO_ROTATE_Y; }
 
+    // X-Y plane -> normal Z -> rotates around Z
     ringDistance = GetRingScreenDistance(camera, viewport, mouseLocal, center,
-        { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, dims.ringOuterZ);
+        { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, dims.ringRadiusZ);
     if (ringDistance < closestRingDistance) { closestRingDistance = ringDistance; closestRing = GIZMO_ROTATE_Z; }
 
     return closestRing;
@@ -342,9 +341,18 @@ bool UpdateTransformGizmo(Camera3D camera, Rectangle viewport)
         case GIZMO_SCALE_X:  ScaleSelectedObjects({ mouseDelta.x * scaleSensitivity, 0.0f, 0.0f }); break;
         case GIZMO_SCALE_Y:  ScaleSelectedObjects({ 0.0f, -mouseDelta.y * scaleSensitivity, 0.0f }); break;
         case GIZMO_SCALE_Z:  ScaleSelectedObjects({ 0.0f, 0.0f, -mouseDelta.x * scaleSensitivity }); break;
-        case GIZMO_ROTATE_X: RotateSelectedObjectsAxis({ mouseDelta.x * rotationSensitivity, 0.0f, 0.0f }); RotateSelectedLightsAxis({ mouseDelta.x * rotationSensitivity, 0.0f, 0.0f }); break;
-        case GIZMO_ROTATE_Y: RotateSelectedObjectsAxis({ 0.0f, mouseDelta.x * rotationSensitivity, 0.0f }); RotateSelectedLightsAxis({ 0.0f, mouseDelta.x * rotationSensitivity, 0.0f }); break;
-        case GIZMO_ROTATE_Z: RotateSelectedObjectsAxis({ 0.0f, 0.0f, mouseDelta.x * rotationSensitivity }); RotateSelectedLightsAxis({ 0.0f, 0.0f, mouseDelta.x * rotationSensitivity }); break;
+        case GIZMO_ROTATE_X:
+            RotateSelectedObjectsAxis({ 1.0f, 0.0f, 0.0f }, mouseDelta.x * rotationSensitivity);
+            RotateSelectedLightsAxis({ 1.0f, 0.0f, 0.0f }, mouseDelta.x * rotationSensitivity);
+            break;
+        case GIZMO_ROTATE_Y:
+            RotateSelectedObjectsAxis({ 0.0f, 1.0f, 0.0f }, mouseDelta.x * rotationSensitivity);
+            RotateSelectedLightsAxis({ 0.0f, 1.0f, 0.0f }, mouseDelta.x * rotationSensitivity);
+            break;
+        case GIZMO_ROTATE_Z:
+            RotateSelectedObjectsAxis({ 0.0f, 0.0f, 1.0f }, mouseDelta.x * rotationSensitivity);
+            RotateSelectedLightsAxis({ 0.0f, 0.0f, 1.0f }, mouseDelta.x * rotationSensitivity);
+            break;
         default: break;
         }
 
@@ -369,21 +377,21 @@ void DrawTransformGizmo()
     DrawCylinderEx(Vector3Add(center, { dims.arrowStart, 0, 0 }), Vector3Add(center, { dims.arrowLength, 0, 0 }), dims.axisRadius, dims.axisRadius, 12, RED);
     DrawCylinderEx(Vector3Add(center, { dims.arrowLength, 0, 0 }), Vector3Add(center, { dims.arrowTipEnd, 0, 0 }), dims.coneRadius, 0.0f, 12, RED);
     // Move Y
-    DrawCylinderEx(Vector3Add(center, { 0, dims.arrowStart, 0 }), Vector3Add(center, { 0, dims.arrowLength, 0 }), dims.axisRadius, dims.axisRadius, 12, GREEN);
-    DrawCylinderEx(Vector3Add(center, { 0, dims.arrowLength, 0 }), Vector3Add(center, { 0, dims.arrowTipEnd, 0 }), dims.coneRadius, 0.0f, 12, GREEN);
+    DrawCylinderEx(Vector3Add(center, { 0, dims.arrowStart, 0 }), Vector3Add(center, { 0, dims.arrowLength, 0 }), dims.axisRadius, dims.axisRadius, 12, BLUE);
+    DrawCylinderEx(Vector3Add(center, { 0, dims.arrowLength, 0 }), Vector3Add(center, { 0, dims.arrowTipEnd, 0 }), dims.coneRadius, 0.0f, 12, BLUE);
     // Move Z
-    DrawCylinderEx(Vector3Add(center, { 0, 0, dims.arrowStart }), Vector3Add(center, { 0, 0, dims.arrowLength }), dims.axisRadius, dims.axisRadius, 12, BLUE);
-    DrawCylinderEx(Vector3Add(center, { 0, 0, dims.arrowLength }), Vector3Add(center, { 0, 0, dims.arrowTipEnd }), dims.coneRadius, 0.0f, 12, BLUE);
+    DrawCylinderEx(Vector3Add(center, { 0, 0, dims.arrowStart }), Vector3Add(center, { 0, 0, dims.arrowLength }), dims.axisRadius, dims.axisRadius, 12, GREEN);
+    DrawCylinderEx(Vector3Add(center, { 0, 0, dims.arrowLength }), Vector3Add(center, { 0, 0, dims.arrowTipEnd }), dims.coneRadius, 0.0f, 12, GREEN);
 
     DrawCube(Vector3Add(center, { dims.scaleHandleDistance, 0, 0 }), dims.cubeSize, dims.cubeSize, dims.cubeSize, RED);
-    DrawCube(Vector3Add(center, { 0, dims.scaleHandleDistance, 0 }), dims.cubeSize, dims.cubeSize, dims.cubeSize, GREEN);
-    DrawCube(Vector3Add(center, { 0, 0, dims.scaleHandleDistance }), dims.cubeSize, dims.cubeSize, dims.cubeSize, BLUE);
+    DrawCube(Vector3Add(center, { 0, dims.scaleHandleDistance, 0 }), dims.cubeSize, dims.cubeSize, dims.cubeSize, BLUE);
+    DrawCube(Vector3Add(center, { 0, 0, dims.scaleHandleDistance }), dims.cubeSize, dims.cubeSize, dims.cubeSize, GREEN);
 
     rlDisableDepthTest();
     rlSetLineWidth(3.0f);
-    DrawCircle3D(center, dims.ringOuterX, { 0.0f, 1.0f, 0.0f }, 90.0f, RED);
-    DrawCircle3D(center, dims.ringOuterY, { 1.0f, 0.0f, 0.0f }, 90.0f, GREEN);
-    DrawCircle3D(center, dims.ringOuterZ, { 0.0f, 0.0f, 1.0f }, 0.0f, BLUE);
+    DrawCircle3D(center, dims.ringRadiusX, { 0.0f, 1.0f, 0.0f }, 90.0f, RED);   // X ring, YZ plane
+    DrawCircle3D(center, dims.ringRadiusY, { 1.0f, 0.0f, 0.0f }, 90.0f, BLUE); // Y ring, XZ plane
+    DrawCircle3D(center, dims.ringRadiusZ, { 0.0f, 0.0f, 1.0f }, 0.0f, GREEN);   // Z ring, XY plane
     rlSetLineWidth(2.0f);
     rlEnableDepthTest();
 }

@@ -20,12 +20,15 @@ static int scrollIndex = -1;
 static int subScrollIndex = -1;
 static int state = STATE_BASE;
 
-void contextMenu(bool& mouseButtonPressed, Camera3D& camera, bool guidedRestricted)
+void contextMenu(bool& mouseButtonPressed, Camera3D& camera, Rectangle viewport, bool guidedRestricted)
 {
     const char** submenuText = NULL;
     int subMenuSize = 0;
 
     Rectangle menuRec = { 0, 0, 125, 180 };
+
+    Rectangle submenuBounds = { 0 };
+    bool submenuVisible = false;
 
     float planeSize = 10000.0f;
     Vector3 p1 = { -planeSize, 0.0f, -planeSize };
@@ -38,7 +41,8 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera, bool guidedRestrict
         mouseButtonPressed = true;
 
         clickPos = GetMousePosition();
-        Ray ray = GetScreenToWorldRay(clickPos, camera);
+        Vector2 localClick = { clickPos.x - viewport.x, clickPos.y - viewport.y };
+        Ray ray = GetScreenToWorldRayEx(localClick, camera, viewport.width, viewport.height);
         RayCollision collision = GetRayCollisionQuad(ray, p1, p2, p3, p4);
 
         if (collision.hit)
@@ -50,24 +54,18 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera, bool guidedRestrict
     }
 
     static const char* menuInsertMesh = "Insert Mesh";
-    static const char* menuObjectEditing = "Object Editing";
     static const char* menuDeleteObject = "Delete Object";
     static const char* menuAddMaterial = "Add Material";
 
     enum rootMenuIndex
     {
         Menu_InsertMesh = 0,
-        Menu_ObjectEditing,
         Menu_DeleteObject,
         Menu_AddMaterial
     };
 
-    // Full root menu, with a parallel array of logical ids. Building both
-    // lets us filter the visible labels (guided mode) without breaking the
-    // "which entry is this" checks below — those now look up rootMenuIds[]
-    // instead of assuming a fixed array position.
-    static const char* fullRootMenu[] = { menuInsertMesh, menuObjectEditing, menuDeleteObject, menuAddMaterial };
-    static const rootMenuIndex fullRootMenuIds[] = { Menu_InsertMesh, Menu_ObjectEditing, Menu_DeleteObject, Menu_AddMaterial };
+    static const char* fullRootMenu[] = { menuInsertMesh, menuDeleteObject, menuAddMaterial };
+    static const rootMenuIndex fullRootMenuIds[] = { Menu_InsertMesh, Menu_DeleteObject, Menu_AddMaterial };
 
     static const char* restrictedRootMenu[] = { menuInsertMesh, menuAddMaterial };
     static const rootMenuIndex restrictedRootMenuIds[] = { Menu_InsertMesh, Menu_AddMaterial };
@@ -136,14 +134,7 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera, bool guidedRestrict
                 TraceLog(LOG_INFO, TextFormat("CLICKED >>> %s", rootMenu[focused]));
 
                 rootMenuIndex focusedId = rootMenuIds[focused];
-
-                if (focusedId == Menu_ObjectEditing)
-                {
-                    state = STATE_BASE;
-                    mainActive = subActive = -1;
-                    mouseButtonPressed = false;
-                }
-                else if (focusedId == Menu_DeleteObject)
+                if (focusedId == Menu_DeleteObject)
                 {
                     deleteObjects();
                     state = STATE_BASE;
@@ -183,6 +174,9 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera, bool guidedRestrict
 
         Rectangle bounds = { submenuX, menuRec.y + (float)mainActive * itemHeight, submenuWidth, (float)subMenuSize * itemHeight + 10 };
         bounds.y = std::clamp(bounds.y, 4.0f, std::max(4.0f, GetScreenHeight() - bounds.height - 4.0f));
+
+        submenuBounds = bounds;
+        submenuVisible = true;
 
         int focused = -1;
         GuiListViewEx(bounds, submenuText, subMenuSize, &subScrollIndex, &subActive, &focused);
@@ -256,6 +250,20 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera, bool guidedRestrict
                 }
             }
 
+            state = STATE_BASE;
+            mainActive = subActive = -1;
+            mouseButtonPressed = false;
+        }
+    }
+
+    if (state != STATE_BASE && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        Vector2 mousePosition = GetMousePosition();
+        bool insideRoot = CheckCollisionPointRec(mousePosition, menuRec);
+        bool insideSub = submenuVisible && CheckCollisionPointRec(mousePosition, submenuBounds);
+
+        if (!insideRoot && !insideSub)
+        {
             state = STATE_BASE;
             mainActive = subActive = -1;
             mouseButtonPressed = false;

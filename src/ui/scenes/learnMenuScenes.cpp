@@ -19,7 +19,7 @@ void learnMenuUpdate() {
 void learnMenuDraw() {
 	UiStyle::LoadMinimalStyle();
 	UiStyle::DrawBackground();
-	UiStyle::DrawSceneHeader("Learn", "Choose your path.", btnTop - 68.0f, btnTop - 28.0f);
+	UiStyle::DrawSceneHeader("Learn", "Choose your path.", headerTop);
 
 	if (GuiButton(btnFreeDraw, "Free Draw")) {
 		SetGuidedWorkspace(false);

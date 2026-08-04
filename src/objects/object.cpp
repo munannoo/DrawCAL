@@ -150,10 +150,8 @@ void shape::applyMaterial(MaterialType type)
 	TraceLog(LOG_INFO, "New material: %p", (void*)sourceMaterial);
 
 
-		// Preserve this object's own transparency setting across a material-type
-		// switch — the Properties panel's material dropdown and a transparency
-		// slider are independent controls; picking "Metal" shouldn't silently
-		// reset an object back to opaque.
+		// Preserve this object's own transparency setting across a material-type switch — the Properties panel's material dropdown and a transparency
+		// slider are independent controls; picking "Metal" shouldn't silently reset an object back to opaque.
 		const unsigned char preservedAlpha = material.albedo.color.a;
 		const R3D_TransparencyMode preservedMode = material.transparencyMode;
 

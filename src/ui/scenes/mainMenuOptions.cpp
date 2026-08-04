@@ -16,9 +16,7 @@ const char* resolutionOptions = "720p (HD);900p (HD+);1080p (Full HD);1440p (Qua
 
 void optionsMenuInit() {
 	btnGraphics = { btnLeft, btnTop, btnWidth, btnHeight };
-	btnControls = { btnLeft, btnTop + 1 * btnGap, btnWidth, btnHeight };
-	btnInterface = { btnLeft, btnTop + 2 * btnGap, btnWidth, btnHeight };
-	btnBack = { btnLeft, btnTop + 3 * btnGap, btnWidth, btnHeight };
+	btnBack = { btnLeft, btnTop + btnGap, btnWidth, btnHeight };
 }
 
 void optionsMenuUpdate() {
@@ -28,11 +26,9 @@ void optionsMenuUpdate() {
 void optionsMenuDraw() {
 	UiStyle::LoadMinimalStyle();
 	UiStyle::DrawBackground();
-	UiStyle::DrawSceneHeader("Options", "Settings and preferences.", btnTop - 68.0f, btnTop - 28.0f);
+	UiStyle::DrawSceneHeader("Options", "Settings and preferences.", headerTop);
 
 	if (GuiButton(btnGraphics, "Display")) sceneManagerChangeScene(optionSceneId::OPTIONS_GRAPHICS);
-	if (GuiButton(btnControls, "Controls")) sceneManagerChangeScene(optionSceneId::OPTIONS_CONTROLS);
-	if (GuiButton(btnInterface, "UI")) sceneManagerChangeScene(optionSceneId::OPTIONS_INTERFACE); // Interface for ui scale, font size, themes, etc.
 
 	if (GuiButton(btnBack, "Back to Main Menu")) {
 		pendingScene = sceneId::SCENE_MENU;
@@ -62,7 +58,7 @@ void optionsGraphicsDraw() {
 
 	UiStyle::LoadMinimalStyle();
 	UiStyle::DrawBackground();
-	UiStyle::DrawSceneHeader("Display Settings", "Graphics and window mode.", btnTop - 68.0f, btnTop - 28.0f);
+	UiStyle::DrawSceneHeader("Display Settings", "Graphics and window mode.", headerTop);
 
 	if (GuiButton(btnResolution, textResolution.c_str())) dropdownEditMode = true;
 
@@ -77,6 +73,7 @@ void optionsGraphicsDraw() {
 			if (IsWindowFullscreen() == 0) textFullScreen = "Windowed";
 			else textFullScreen = "Fullscreen";
 			changeButtonResolution();
+			optionsGraphicsInit();
 			ShowCursor();
 		}
 
@@ -125,7 +122,7 @@ void optionsControlsUpdate(){}
 void optionsControlsDraw(){
 	UiStyle::LoadMinimalStyle();
 	UiStyle::DrawBackground();
-	UiStyle::DrawSceneHeader("Controls", "Camera and input help.", btnTop - 68.0f, 50.0f);
+	UiStyle::DrawSceneHeader("Controls", "Camera and input help.", headerTop);
 
 	//drawCameraControllerSettings();
 	if (GuiButton(btnBack, "Back")) {

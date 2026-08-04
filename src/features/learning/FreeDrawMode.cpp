@@ -1028,13 +1028,13 @@ namespace
                 int materialIndex = guidedTargetShape->getMaterialType();
                 Rectangle materialBounds = { contentX + 82.0f, y, contentWidth - 82.0f, editorControlHeight };
 
-                if (GuiDropdownBox(materialBounds, "Concrete;Wood;Plastic;Cobblestone;Brick;Tiles;Metal;Marble;Asphalt",
+                if (GuiDropdownBox(materialBounds, "None;Concrete;Wood;Plastic;Cobblestone;Brick;Tiles;Metal;Marble;Asphalt",
                     &materialIndex, propertyMaterialDropdownOpen))
                 {
                     propertyMaterialDropdownOpen = !propertyMaterialDropdownOpen;
                 }
                 if (materialIndex != guidedTargetShape->getMaterialType())
-                    guidedTargetShape->applyMaterial(static_cast<MaterialType>(materialIndex + 1));
+                    guidedTargetShape->applyMaterial(static_cast<MaterialType>(materialIndex));
 
                 if (!interactive) GuiEnable();
                 return;
@@ -1131,13 +1131,13 @@ namespace
         const float controlHeight = editorControlHeight;
         Rectangle materialBounds = { contentX + 82.0f, y, contentWidth - 82.0f, controlHeight };
 
-        if (GuiDropdownBox(materialBounds, "Concrete;Wood;Plastic;Cobblestone;Brick;Tiles;Metal;Marble;Asphalt",
+        if (GuiDropdownBox(materialBounds, "None;Concrete;Wood;Plastic;Cobblestone;Brick;Tiles;Metal;Marble;Asphalt",
             &materialIndex, propertyMaterialDropdownOpen))
         {
             propertyMaterialDropdownOpen = !propertyMaterialDropdownOpen;
         }
         if (materialIndex != selected->getMaterialType())
-            selected->applyMaterial(static_cast<MaterialType>(materialIndex+1));
+            selected->applyMaterial(static_cast<MaterialType>(materialIndex));
 
         y += controlHeight + 10.0f;
 
@@ -1765,7 +1765,15 @@ void freeDrawDraw() {
     GuiDrawIcon(ICON_GEAR_BIG, btnOptionsIcon.x, btnOptionsIcon.y, 2, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
     if ((IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && !isPointerOverEditorUi()) || freeDrawState.mouseButtonPressed) {
-        contextMenu(freeDrawState.mouseButtonPressed, getEditableCamera().getCamera(), guidedWorkspace);
+        Vector2 mouse = GetMousePosition();
+        int hitIndex = 0; // default to editable viewport if nothing hit (e.g. menu already open, mouse drifted)
+        for (int i = 0; i < viewBounds.size(); ++i)
+            if (CheckCollisionPointRec(mouse, viewBounds[i])) { hitIndex = static_cast<int>(i); break; }
+
+        contextMenu(freeDrawState.mouseButtonPressed,
+            freeDrawState.activeViews[hitIndex].camera.getCamera(),
+            viewBounds[hitIndex],
+            guidedWorkspace);
     }
 
     // Docking panels are shared by both modes now — Guided mode no longer
