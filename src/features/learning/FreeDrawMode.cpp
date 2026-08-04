@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "raygui.h"
 #include "raymath.h"
+#include "rlgl.h"
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -28,17 +29,7 @@ namespace UiStyle
 }
 
 static bool guidedWorkspace = false;
-static bool guidedDimensionsVisible = false;
-
-void SetGuidedWorkspace(bool guided)
-{
-    guidedWorkspace = guided;
-    if (guided)
-    {
-        freeDrawState.mouseButtonPressed = false;
-        guidedDimensionsVisible = false;
-    }
-}
+static bool dimensionsVisible = false; // 'M' toggle — usable in both Guided and plain FreeDraw now
 
 namespace
 {
@@ -64,13 +55,14 @@ namespace
     };
 
 
-    // Guided workspace state
+    // Guided mode state — the ghost "answer" shape and the check-result outcome.
+    // The ghost is intentionally never added to `objects`, so it never shows up
+    // in selection, the workspace panel, or the dimension overlay.
 
-    static float guidedZoom[3] = { 1.0f, 1.0f, 1.0f };
-    static RenderTexture2D guidedViewTexture = {};
-    static int guidedViewTextureWidth = 0;
-    static int guidedViewTextureHeight = 0;
-
+    static bool guidedTargetVisible = false;
+    static int guidedResultState = 0; // 0 = not checked yet, 1 = correct, 2 = incorrect
+    static float guidedResultMessageTimer = 0.0f;
+    static bool guidedGaveUp = false;
 
     // Global transparency toggle
 
@@ -84,7 +76,7 @@ namespace
     static int activeFloatField = -1;
     static Vector2 propertiesPanelScroll = { 0.0f, 0.0f };
     static bool propertyMaterialDropdownOpen = false;
-    static shape* propertyBoundObject = nullptr;    
+    static shape* propertyBoundObject = nullptr;
     static Light* propertyBoundLight = nullptr;
 
 
@@ -337,7 +329,7 @@ namespace
         return { dock.x, dock.y + getCameraPanelHeight() + getWorkspacePanelHeight(), dock.width, height };
     }
 
-    // === Guided workspace (orthographic reference views) ===
+    // === Object dimension overlay (used by both Guided and plain FreeDraw) ===
     static FocusFrame ComputeFocusFrame()
     {
         bool any = false;
@@ -358,36 +350,25 @@ namespace
             }
         }
 
-        if (!any) return FocusFrame{}; // origin, unit half-extent
+        if (guidedWorkspace && guidedTargetShape)
+        {
+            const int vertexCount = guidedTargetShape->getVertexCount();
+            for (int i = 0; i < vertexCount; ++i)
+            {
+                const Vector3 vertex = guidedTargetShape->getVertexWorldPosition(i);
+                minB = Vector3Min(minB, vertex);
+                maxB = Vector3Max(maxB, vertex);
+                any = true;
+            }
+        }
+
+        if (!any) return FocusFrame{};
 
         FocusFrame frame;
         frame.center = Vector3Scale(Vector3Add(minB, maxB), 0.5f);
         frame.halfExtent = Vector3Scale(Vector3Subtract(maxB, minB), 0.5f);
         return frame;
-    }    static Camera3D MakeGuidedReferenceCamera(Vector3 direction, Vector3 up, Vector3 target, float frameHeight, float distance)
-    {
-        Camera3D camera = {};
-        camera.position = Vector3Add(target, Vector3Scale(direction, distance));
-        camera.target = target;
-        camera.up = up;
-        camera.fovy = std::max(frameHeight, 0.25f);
-        camera.projection = CAMERA_ORTHOGRAPHIC;
-        return camera;
-    }    
-    static void EnsureGuidedViewTexture(int width, int height)
-    {
-        width = std::max(width, 1);
-        height = std::max(height, 1);
-        if (guidedViewTexture.id != 0 &&
-            guidedViewTextureWidth == width && guidedViewTextureHeight == height)
-            return;
-
-        if (guidedViewTexture.id != 0) UnloadRenderTexture(guidedViewTexture);
-        guidedViewTexture = LoadRenderTexture(width, height);
-        guidedViewTextureWidth = width;
-        guidedViewTextureHeight = height;
     }
-
     struct GuidedVertex { Vector3 local; Vector3 world; };
     struct GuidedDimension { Vector3 start; Vector3 end; Vector3 center; unsigned int objectId; };
     struct ScreenDimension { Vector2 start; Vector2 end; Vector2 center; float value; unsigned int objectId; };
@@ -434,15 +415,15 @@ namespace
         std::set<std::pair<int, int>> edges;
 
         const auto addEdge = [&](int a, int b)
-        {
-            if (a < 0 || b < 0 || a >= mesh.vertexCount || b >= mesh.vertexCount) return;
-            a = vertexMap[a]; b = vertexMap[b];
-            if (a != b) edges.insert(std::minmax(a, b));
-        };
+            {
+                if (a < 0 || b < 0 || a >= mesh.vertexCount || b >= mesh.vertexCount) return;
+                a = vertexMap[a]; b = vertexMap[b];
+                if (a != b) edges.insert(std::minmax(a, b));
+            };
         const auto addTriangle = [&](int a, int b, int c)
-        {
-            addEdge(a, b); addEdge(b, c); addEdge(c, a);
-        };
+            {
+                addEdge(a, b); addEdge(b, c); addEdge(c, a);
+            };
 
         if (mesh.indices != nullptr)
             for (int i = 0; i + 2 < mesh.indexCount; i += 3)
@@ -484,9 +465,9 @@ namespace
                 for (int b = a + 1; b < static_cast<int>(points.size()); ++b)
                 {
                     const float mainDistance = axis == 0 ? std::fabs(points[a].x - points[b].x)
-                                                         : std::fabs(points[a].y - points[b].y);
+                        : std::fabs(points[a].y - points[b].y);
                     const float crossDistance = axis == 0 ? std::fabs(points[a].y - points[b].y)
-                                                          : std::fabs(points[a].x - points[b].x);
+                        : std::fabs(points[a].x - points[b].x);
                     const float score = mainDistance - crossDistance * 4.0f;
                     if (score > bestScore) { bestScore = score; bestA = a; bestB = b; }
                 }
@@ -495,6 +476,10 @@ namespace
         }
     }
 
+    // Draws dimension lines/labels for the currently-selected object(s) into
+    // an arbitrary viewport. `content` must be the viewport's absolute
+    // screen-space rectangle (matching what DrawCameraScene rendered into) —
+    // works for the main viewport as well as any split-screen slot.
     static void DrawGuidedSideDimensions(const Camera3D& camera, Rectangle content)
     {
         const int viewportWidth = std::max(1, static_cast<int>(content.width));
@@ -588,99 +573,6 @@ namespace
         }
     }
 
-    static void DrawGuidedReferenceView(Rectangle bounds, const char* title,
-        const Camera3D& camera)
-    {
-        const int headerHeight = 30;
-        const int contentWidth = std::max(1, static_cast<int>(bounds.width) - 2);
-        const int contentHeight = std::max(1, static_cast<int>(bounds.height) - headerHeight - 1);
-        EnsureGuidedViewTexture(contentWidth, contentHeight);
-
-        Rectangle localViewport = { 0, 0, static_cast<float>(contentWidth), static_cast<float>(contentHeight) };
-        RenderCameraSceneToTexture(camera, localViewport, guidedViewTexture, false);
-
-        DrawRectangleRec(bounds, GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
-        DrawTexturePro(guidedViewTexture.texture,
-            { 0.0f, 0.0f, static_cast<float>(contentWidth),
-              -static_cast<float>(contentHeight) },
-            { bounds.x + 1.0f, bounds.y + headerHeight,
-              bounds.width - 2.0f, bounds.height - headerHeight - 1.0f },
-            { 0.0f, 0.0f }, 0.0f, WHITE);
-        DrawRectangle(static_cast<int>(bounds.x), static_cast<int>(bounds.y),
-            static_cast<int>(bounds.width), headerHeight,
-            GetColor(GuiGetStyle(DEFAULT, BASE_COLOR_NORMAL)));
-        DrawRectangleLinesEx(bounds, 1.0f,
-            GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL)));
-        DrawTextEx(GuiGetFont(), title, { bounds.x + 10.0f, bounds.y + 6.0f }, fontSize, spacing, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
-
-        if (!guidedDimensionsVisible) return;
-
-        const Rectangle content = { bounds.x + 1.0f, bounds.y + headerHeight,
-                                    bounds.width - 2.0f, bounds.height - headerHeight - 1.0f };
-        DrawGuidedSideDimensions(camera, content);
-    }
-
-    static void DrawGuidedReferenceViews()
-    {
-        const Rectangle dock = getEditorDockBounds();
-        const float gap = 4.0f;
-        const float viewHeight = (dock.height - gap * 2.0f) / 3.0f;
-        const float contentHeight = std::max(1.0f, viewHeight - 31.0f);
-        const float aspect = std::max(0.1f, (dock.width - 2.0f) / contentHeight);
-        const float padding = 1.18f;
-        const FocusFrame frame = ComputeFocusFrame();
-        const float maxExtent = std::max(frame.halfExtent.x, std::max(frame.halfExtent.y, frame.halfExtent.z));
-
-        const float frontDistance = (5.0f + 2.0f * maxExtent) / guidedZoom[0];
-        const float topDistance = (5.0f + 2.0f * maxExtent) / guidedZoom[1];
-        const float sideDistance = (5.0f + 2.0f * maxExtent) / guidedZoom[2];
-
-        const float frontHeight = 2.0f * padding *
-            std::max(frame.halfExtent.y, frame.halfExtent.x / aspect) / guidedZoom[0];
-        const float topHeight = 2.0f * padding *
-            std::max(frame.halfExtent.z, frame.halfExtent.x / aspect) / guidedZoom[1];
-        const float sideHeight = 2.0f * padding *
-            std::max(frame.halfExtent.y, frame.halfExtent.z / aspect) / guidedZoom[2];
-
-        const Camera3D front = MakeGuidedReferenceCamera(
-            { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f, 0.0f }, frame.center,
-            frontHeight, frontDistance);
-        const Camera3D top = MakeGuidedReferenceCamera(
-            { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, -1.0f }, frame.center,
-            topHeight, topDistance);
-        const Camera3D side = MakeGuidedReferenceCamera(
-            { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, frame.center,
-            sideHeight, sideDistance);
-
-        DrawGuidedReferenceView({ dock.x, dock.y, dock.width, viewHeight }, "Front", front);
-        DrawGuidedReferenceView({ dock.x, dock.y + viewHeight + gap, dock.width, viewHeight },
-            "Top", top);
-        DrawGuidedReferenceView({ dock.x, dock.y + (viewHeight + gap) * 2.0f,
-                                  dock.width, viewHeight }, "Side", side);
-
-        // Scroll-wheel zoom for the three read-only reference panels.
-        Rectangle panelRects[3] = {
-            { dock.x, dock.y, dock.width, viewHeight },
-            { dock.x, dock.y + viewHeight + gap, dock.width, viewHeight },
-            { dock.x, dock.y + (viewHeight + gap) * 2.0f, dock.width, viewHeight }
-        };
-        Vector2 mouse = GetMousePosition();
-        for (int i = 0; i < 3; ++i)
-        {
-            if (!CheckCollisionPointRec(mouse, panelRects[i])) continue;
-            float wheel = GetMouseWheelMove();
-            if (wheel != 0.0f)
-                guidedZoom[i] = Clamp(guidedZoom[i] * (1.0f + wheel * 0.1f), 0.15f, 6.0f);
-        }
-
-        const char* shortcut = guidedDimensionsVisible ? "M: Dimensions ON" : "M: Dimensions";
-        const Vector2 shortcutSize = MeasureThemeText(shortcut, 12.0f);
-        DrawThemeText(shortcut, dock.x + dock.width - shortcutSize.x - 9.0f,
-            dock.y + 8.0f, 12.0f,
-            guidedDimensionsVisible ? Color{ 255, 196, 64, 255 }
-        : GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
-    }
-
     // === Camera helpers ===
     cameraController& getEditableCamera() {
         for (auto& slot : freeDrawState.activeViews)
@@ -697,6 +589,45 @@ namespace
             DisableCursor();   // hides + locks the cursor for FPS-style mouselook
         else
             EnableCursor();    // restores the cursor for orbit/UI interaction
+    }
+
+    // === Split-screen (Front/Top/Left reference views) ===
+    // Shared by the manual "Split Screen" toggle and Guided mode, which now
+    // simply forces this on instead of maintaining its own reference-view system.
+    static void EnableSplitScreen()
+    {
+        freeDrawState.splitScreenEnabled = true;
+        if (freeDrawState.activeViews.size() > 1) return; // already split
+
+        ViewportSlot front, top, left;
+        front.editable = false; front.trackSelection = true; front.presetView = cameraView::Front;
+        top.editable = false; top.trackSelection = true; top.presetView = cameraView::Top;
+        left.editable = false; left.trackSelection = true; left.presetView = cameraView::Left;
+
+        Vector3 focus = activeObject ? activeObject->getTransform().translation : Vector3{ 0.0f, 0.0f, 0.0f };
+
+        front.camera.setView(cameraView::Front, focus);
+        front.camera.getCamera().projection = CAMERA_ORTHOGRAPHIC;
+        top.camera.setView(cameraView::Top, focus);
+        top.camera.getCamera().projection = CAMERA_ORTHOGRAPHIC;
+        left.camera.setView(cameraView::Left, focus);
+        left.camera.getCamera().projection = CAMERA_ORTHOGRAPHIC;
+
+        freeDrawState.activeViews.push_back(front);
+        freeDrawState.activeViews.push_back(top);
+        freeDrawState.activeViews.push_back(left);
+    }
+    static void DisableSplitScreen()
+    {
+        freeDrawState.splitScreenEnabled = false;
+        if (freeDrawState.activeViews.size() <= 1) return;
+
+        // Release each discarded slot's render target before dropping it —
+        // vector::resize won't do this for us since RenderTexture2D has no destructor.
+        for (size_t i = 1; i < freeDrawState.activeViews.size(); ++i)
+            freeDrawState.activeViews[i].releaseTarget();
+
+        freeDrawState.activeViews.resize(1);
     }
 
     // === Transparency toggle logic ===
@@ -1003,40 +934,20 @@ namespace
 
         Rectangle splitBtn = { fx, y, fw, controlHeight };
         bool splitActive = freeDrawState.splitScreenEnabled;
+
+        // Guided mode always studies Front/Top/Left, so the toggle is locked on
+        // and can't be switched off while guided. Only touch Gui(Disable/Enable)
+        // when we're already interactive — otherwise this would undo the outer
+        // GuiDisable() call above for a non-hovered panel.
+        if (guidedWorkspace && interactive) GuiDisable();
         GuiToggle(splitBtn, splitActive ? "Split Screen: On" : "Split Screen: Off", &splitActive);
+        if (guidedWorkspace && interactive) GuiEnable();
 
-        if (splitActive && freeDrawState.activeViews.size() == 1)
+        if (!guidedWorkspace)
         {
-            freeDrawState.splitScreenEnabled = splitActive;
-            ViewportSlot front, top, left;
-            front.editable = false; front.trackSelection = true; front.presetView = cameraView::Front;
-            top.editable = false; top.trackSelection = true; top.presetView = cameraView::Top;
-            left.editable = false; left.trackSelection = true; left.presetView = cameraView::Left;
-
-            Vector3 focus = activeObject ? activeObject->getTransform().translation : Vector3{ 0,0,0 };
-
-            front.camera.setView(cameraView::Front, focus);
-            front.camera.getCamera().projection = CAMERA_ORTHOGRAPHIC;
-            top.camera.setView(cameraView::Top, focus);
-            top.camera.getCamera().projection = CAMERA_ORTHOGRAPHIC;
-            left.camera.setView(cameraView::Left, focus);
-            left.camera.getCamera().projection = CAMERA_ORTHOGRAPHIC;
-
-            freeDrawState.activeViews.push_back(front);
-            freeDrawState.activeViews.push_back(top);
-            freeDrawState.activeViews.push_back(left);
+            if (splitActive && !freeDrawState.splitScreenEnabled) EnableSplitScreen();
+            else if (!splitActive && freeDrawState.splitScreenEnabled) DisableSplitScreen();
         }
-        else if (!splitActive && freeDrawState.activeViews.size() > 1)
-        {
-            // Release each discarded slot's render target before dropping it —
-            // vector::resize won't do this for us since RenderTexture2D has no destructor.
-            for (size_t i = 1; i < freeDrawState.activeViews.size(); ++i)
-                freeDrawState.activeViews[i].releaseTarget();
-
-            freeDrawState.activeViews.resize(1);
-        }
-
-        freeDrawState.splitScreenEnabled = splitActive;
 
         y += controlHeight + 12.0f;
 
@@ -1100,10 +1011,38 @@ namespace
 
         if (total == 0)
         {
-            propertyBoundObject = nullptr;
+            if(!guidedTargetVisible) propertyBoundObject = nullptr;
             propertyBoundLight = nullptr;
+
+            if (guidedWorkspace && guidedTargetShape && guidedTargetVisible)
+            {
+                updatePropertyBinding(guidedTargetShape.get());
+
+                DrawTextEx(GuiGetFont(), TextFormat("Target %s (ghost)", guidedTargetShape->getObjectTypeString()),
+                    { contentX, y }, fontSize + 2.0f, spacing, Fade(UiStyle::kAccent, 0.8f));
+                y += 25.0f;
+
+                DrawTextEx(GuiGetFont(), "Material", { contentX, y + 5.0f }, fontSize, spacing,
+                    GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+
+                int materialIndex = guidedTargetShape->getMaterialType();
+                Rectangle materialBounds = { contentX + 82.0f, y, contentWidth - 82.0f, editorControlHeight };
+
+                if (GuiDropdownBox(materialBounds, "Concrete;Wood;Plastic;Cobblestone;Brick;Tiles;Metal;Marble;Asphalt",
+                    &materialIndex, propertyMaterialDropdownOpen))
+                {
+                    propertyMaterialDropdownOpen = !propertyMaterialDropdownOpen;
+                }
+                if (materialIndex != guidedTargetShape->getMaterialType())
+                    guidedTargetShape->applyMaterial(static_cast<MaterialType>(materialIndex + 1));
+
+                if (!interactive) GuiEnable();
+                return;
+            }
+
             resetPropertyEditorState();
-            DrawTextEx(GuiGetFont(), "No object selected", { contentX, y }, fontSize, spacing, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_DISABLED)));
+            DrawTextEx(GuiGetFont(), "No object selected", { contentX, y }, fontSize, spacing,
+                GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_DISABLED)));
             if (!interactive) GuiEnable();
             return;
         }
@@ -1198,7 +1137,7 @@ namespace
             propertyMaterialDropdownOpen = !propertyMaterialDropdownOpen;
         }
         if (materialIndex != selected->getMaterialType())
-            selected->applyMaterial(static_cast<MaterialType>(materialIndex));
+            selected->applyMaterial(static_cast<MaterialType>(materialIndex+1));
 
         y += controlHeight + 10.0f;
 
@@ -1272,10 +1211,11 @@ namespace
     {
         const bool isWalkMode = (getEditableCamera().getNavigationMode() == cameraNavigationMode::Walk);
 
-        struct HintLine { const char* text; };
+        struct HintLine { const char* text; bool highlighted; };
         HintLine lines[] = {
-            { isWalkMode ? "Disable Walk Mode: N" : "" },
-            { "Toggle Help: F1" },
+            { isWalkMode ? "Disable Walk Mode: N" : "", false },
+            { "Toggle Dimensions: M", dimensionsVisible },
+            { "Toggle Help: F1", false },
         };
         const int lineCount = static_cast<int>(sizeof(lines) / sizeof(lines[0]));
 
@@ -1301,8 +1241,8 @@ namespace
         float ty = boxY + padding;
         for (auto& line : lines)
         {
-            const Color color = isWalkMode && line.text[0] == 'D'
-                ? UiStyle::kAccent // highlight the walk-mode line's color when it's the "disable" state
+            const Color color = line.highlighted
+                ? UiStyle::kAccent
                 : GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL));
 
             DrawTextEx(GuiGetFont(), line.text, { boxX + padding, ty }, hintFontSize, spacing, color);
@@ -1310,10 +1250,165 @@ namespace
         }
     }
 
+    // === Guided-mode overlay: ghost target visibility + check result ===
+    static float QuaternionAngleDeg(Quaternion a, Quaternion b)
+    {
+        float dot = Clamp(fabsf(Vector4DotProduct(a, b)), -1.0f, 1.0f);
+        return 2.0f * acosf(dot) * RAD2DEG;
+    }
+    
+    static const std::vector<Quaternion>& GetCubeSymmetryGroup()
+    {
+        static const std::vector<Quaternion> group = []
+            {
+                const Quaternion rotX90 = QuaternionFromAxisAngle({ 1,0,0 }, 90.0f * DEG2RAD);
+                const Quaternion rotY90 = QuaternionFromAxisAngle({ 0,1,0 }, 90.0f * DEG2RAD);
+                const Quaternion generators[2] = { rotX90, rotY90 };
+
+                std::vector<Quaternion> result = { QuaternionIdentity() };
+                std::vector<Quaternion> frontier = result;
+
+                while (!frontier.empty())
+                {
+                    std::vector<Quaternion> next;
+                    for (const Quaternion& q : frontier)
+                    {
+                        for (const Quaternion& gen : generators)
+                        {
+                            Quaternion candidate = QuaternionMultiply(gen, q);
+                            bool seen = false;
+                            for (const Quaternion& existing : result)
+                            {
+                                // Quaternion double-cover: q and -q are the same rotation.
+                                if (fabsf(Vector4DotProduct(candidate, existing)) > 0.9999f) { seen = true; break; }
+                            }
+                            if (!seen) { result.push_back(candidate); next.push_back(candidate); }
+                        }
+                    }
+                    frontier = next;
+                }
+                return result; // converges to 24 elements
+            }();
+        return group;
+    }
 
 
+    static bool CompareGuidedTransforms(const Transform& a, const Transform& b, ObjectType type)
+    {
+        constexpr float positionTolerance = 0.2f;
+        constexpr float scaleTolerance = 0.06f;
+        constexpr float angleToleranceDeg = 6.0f;
+
+        if (Vector3Distance(a.translation, b.translation) > positionTolerance) return false;
+        if (Vector3Distance(a.scale, b.scale) > scaleTolerance) return false;
+
+        switch (type)
+        {
+        case ObjectType::SPHERE:
+            return true;
+
+        case ObjectType::CYLINDER:
+        {
+            Vector3 axisA = Vector3RotateByQuaternion({ 0.0f, 1.0f, 0.0f }, a.rotation);
+            Vector3 axisB = Vector3RotateByQuaternion({ 0.0f, 1.0f, 0.0f }, b.rotation);
+            float dot = Clamp(fabsf(Vector3DotProduct(axisA, axisB)), -1.0f, 1.0f);
+            return acosf(dot) * RAD2DEG <= angleToleranceDeg;
+        }
+
+        case ObjectType::CUBE:
+        {
+
+            float bestAngle = FLT_MAX;
+            for (const Quaternion& symmetry : GetCubeSymmetryGroup())
+            {
+                Quaternion equivalent = QuaternionMultiply(b.rotation, symmetry);
+                bestAngle = std::min(bestAngle, QuaternionAngleDeg(a.rotation, equivalent));
+            }
+            return bestAngle <= angleToleranceDeg;
+        }
+
+        default:
+            return QuaternionAngleDeg(a.rotation, b.rotation) <= angleToleranceDeg;
+        }
+    }
 
 
+    static bool CheckGuidedResult()
+    {
+        if (!guidedTargetShape) return false;
+
+        // Guided exercises spawn exactly one editable object, matching the
+        // target's object type — that's the learner's answer.
+        shape* userObject = nullptr;
+        for (auto& objectPtr : objects)
+        {
+            if (objectPtr) { userObject = objectPtr.get(); break; }
+        }
+        if (userObject == nullptr) return false;
+        if (userObject->getObjectType() != guidedTargetShape->getObjectType()) return false;
+
+        return CompareGuidedTransforms(userObject->getTransform(), guidedTargetShape->getTransform(), guidedTargetShape->getObjectType());
+    }
+
+    static void drawGuidedOverlay()
+    {
+        if (!guidedWorkspace) return;
+
+        const float buttonWidth = 176.0f;
+        const float buttonHeight = 32.0f;
+        const float gap = 8.0f;
+        const float boxWidth = buttonWidth + 16.0f;
+
+        const bool showGiveUpButton = !guidedGaveUp;
+        const int buttonCount = 3;
+        const float boxHeight = 8.0f + buttonCount * buttonHeight + (buttonCount - 1) * gap + 8.0f
+            + (guidedResultMessageTimer > 0.0f ? (fontSize + 6.0f) : 0.0f);
+
+        const float boxX = (GetScreenWidth() - boxWidth) / 2.0f;
+        const float boxY = 10.0f;
+
+        float y = boxY + 8.0f;
+
+        Rectangle showTargetBtn = { boxX + 8.0f, y, buttonWidth, buttonHeight };
+        GuiToggle(showTargetBtn, guidedTargetVisible ? "Hide Target" : "Show Target", &guidedTargetVisible);
+
+        y += buttonHeight + gap;
+
+        Rectangle checkBtn = { boxX + 8.0f, y, buttonWidth, buttonHeight };
+        if (GuiButton(checkBtn, "Check Result"))
+        {
+            guidedResultState = CheckGuidedResult() ? 1 : 2;
+            guidedResultMessageTimer = 3.0f;
+        }
+        y += buttonHeight + gap;
+
+        if (showGiveUpButton)
+        {
+            Rectangle giveUpBtn = { boxX + 8.0f, y, buttonWidth, buttonHeight };
+            if (GuiButton(giveUpBtn, "Show Answer"))
+            {
+                objects.push_back(std::move(guidedTargetShape));
+
+                guidedGaveUp = true;
+                guidedTargetVisible = true;
+                guidedResultMessageTimer = 0.0f; // clear any stale correct/incorrect message
+            }
+            y += buttonHeight + gap;
+        }
+
+        if (guidedResultMessageTimer > 0.0f)
+        {
+            guidedResultMessageTimer -= GetFrameTime();
+
+            const char* message = (guidedResultState == 1) ? "Correct - nice match!" : "Not yet - keep adjusting";
+            const Color messageColor = (guidedResultState == 1) ? Color{ 46, 204, 113, 255 } : Color{ 231, 76, 60, 255 };
+            const Vector2 messageSize = MeasureTextEx(GuiGetFont(), message, fontSize, spacing);
+
+            DrawTextEx(GuiGetFont(), message,
+                { boxX + boxWidth / 2.0f - messageSize.x / 2.0f, y },
+                fontSize, spacing, messageColor);
+        }
+    }
 
     // === Viewport / input ===
     static std::vector<Rectangle> computeViewportBounds(int count)
@@ -1370,13 +1465,40 @@ namespace
         DrawTextEx(GuiGetFont(), label, { badge.x + paddingX, badge.y + paddingY }, fontSize, spacing,
             GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
     }
+}
 
+// Called from GuidedMode.cpp when a new exercise starts (and cleared when one
+// isn't applicable, e.g. an imported scene, or when leaving guided mode).
+void SetGuidedTarget(std::unique_ptr<shape> target)
+{
+    guidedTargetShape = std::move(target);
+}
 
+void SetGuidedWorkspace(bool guided)
+{
+    guidedWorkspace = guided;
+    if (guided)
+    {
+        freeDrawState.mouseButtonPressed = false;
+        guidedTargetVisible = false;
+        guidedResultState = 0;
+        guidedResultMessageTimer = 0.0f;
+        guidedGaveUp = false;
+    }
+    else
+    {
+        SetGuidedTarget(nullptr);
+        guidedTargetVisible = false;
+        guidedResultState = 0;
+        guidedResultMessageTimer = 0.0f;
+        guidedGaveUp = false;
+    }
+}
 
-
-
-
-
+void drawGuidedGhostTarget()
+{
+    if (!guidedWorkspace || !guidedTargetVisible || !guidedTargetShape) return;
+    guidedTargetShape->drawShape();
 }
 
 void freeDrawInit() {
@@ -1401,13 +1523,17 @@ void freeDrawInit() {
     freeDrawState.activeViews.push_back(mainSlot);
 
     initialiseEnvironment();
+
+    if (guidedWorkspace)
+        EnableSplitScreen();
+
 }
 
 void freeDrawUpdate() {
 
     if (!freeDrawState.initiliased) return;
-    if (guidedWorkspace && IsKeyPressed(KEY_M))
-        guidedDimensionsVisible = !guidedDimensionsVisible;
+    if (IsKeyPressed(KEY_M))
+        dimensionsVisible = !dimensionsVisible;
 
     std::vector<Rectangle> bounds = computeViewportBounds(static_cast<int>(freeDrawState.activeViews.size()));
 
@@ -1505,7 +1631,7 @@ void freeDrawUpdate() {
         if (freeDrawState.activeViews[i].editable) { editableIndex = static_cast<int>(i); break; }
     }
 
-    bool usingGizmo = IsCursorHidden() ? false : updateObjectTransformGizmo( freeDrawState.activeViews[editableIndex].camera.getCamera(), bounds[editableIndex] );
+    bool usingGizmo = IsCursorHidden() ? false : updateObjectTransformGizmo(freeDrawState.activeViews[editableIndex].camera.getCamera(), bounds[editableIndex]);
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
@@ -1554,7 +1680,14 @@ void freeDrawUpdate() {
 
     if (!guidedWorkspace && IsKeyPressed(KEY_DELETE) && !isPropertyEditorActive())
     {
+        if (lightTargetPickLight != nullptr && lightTargetPickLight->getSelected())
+        {
+            lightTargetPickMode = false;
+            lightTargetPickLight = nullptr;
+        }
+
         deleteObjects();
+        deleteLights();
         resetPropertyEditorState();
     }
 
@@ -1614,37 +1747,36 @@ void freeDrawDraw() {
         ViewportSlot& slot = freeDrawState.activeViews[i];
         Rectangle vb = viewBounds[i];
 
-        // Cheap no-op most frames — reallocates only when this slot's pixel
-        // size actually changed (window resize, split-screen toggle).
         slot.ensureTarget(static_cast<int>(vb.width), static_cast<int>(vb.height));
 
         DrawCameraScene(slot.camera.getCamera(), vb, slot.target, slot.editable);
         DrawViewportLabel(vb, GetViewportLabel(slot, slot.editable));
+
+        if (dimensionsVisible)
+            DrawGuidedSideDimensions(slot.camera.getCamera(), vb);
     }
 
     const float iconSize = 32.0f;
     Rectangle btnOptionsIcon = { (float)GetScreenWidth() - iconSize - 10.0f, 10.0f, iconSize, iconSize };
     if (GuiButton(btnOptionsIcon, "")) {
+        SetGuidedWorkspace(false); // leaving FreeDraw entirely — don't leak guided state into the next session
         sceneManagerChangeScene(sceneId::SCENE_MENU);
     }
     GuiDrawIcon(ICON_GEAR_BIG, btnOptionsIcon.x, btnOptionsIcon.y, 2, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
-    if (!guidedWorkspace && (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && !isPointerOverEditorUi()) || freeDrawState.mouseButtonPressed) {
-        contextMenu(freeDrawState.mouseButtonPressed, getEditableCamera().getCamera());
+    if ((IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && !isPointerOverEditorUi()) || freeDrawState.mouseButtonPressed) {
+        contextMenu(freeDrawState.mouseButtonPressed, getEditableCamera().getCamera(), guidedWorkspace);
     }
 
-    if (guidedWorkspace)
-    {
-        // Fixed, display-only orthographic views replace all editable dock UI.
-        DrawGuidedReferenceViews();
-    }
-    else if(!IsCursorHidden())
+    // Docking panels are shared by both modes now — Guided mode no longer
+    // swaps in its own bespoke reference-view/zoom system.
+    if (!IsCursorHidden())
     {
         drawPropertiesPanel(CheckCollisionPointRec(GetMousePosition(), getPropertiesPanelBounds()));
         drawWorkspacePanel(CheckCollisionPointRec(GetMousePosition(), getWorkspacePanelBounds()));
         drawCameraPanel(CheckCollisionPointRec(GetMousePosition(), getCameraPanelBounds()));
         drawControlHintsOverlay();
-
+        drawGuidedOverlay(); // no-op outside guided mode
     }
     if (freeDrawState.helpTip)
     {
@@ -1655,10 +1787,11 @@ void freeDrawDraw() {
 void freeDrawUnload() {
     freeDrawState.initiliased = false;
     UnloadTransformGizmo();
-    if (guidedViewTexture.id != 0) { UnloadRenderTexture(guidedViewTexture); guidedViewTexture = {}; guidedViewTextureWidth = guidedViewTextureHeight = 0; }
 
     for (auto& slot : freeDrawState.activeViews)
         slot.releaseTarget();
+
+    SetGuidedWorkspace(false); // clears the ghost target + resets guided flags so a later plain session starts clean
 
     EnableCursor(); // don't leak a disabled/locked cursor state into whatever scene loads next
 

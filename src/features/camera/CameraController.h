@@ -11,6 +11,7 @@
 
 
 // orbit = move with shift mmb, rotate with mmb, walk = move with wasd, rotate with mouse
+
 enum class cameraNavigationMode{Orbit,Walk};
 enum class cameraView { Free = 0, Front, Top, Left, Right};
 enum class editorViewMode { Single, Split };
@@ -93,8 +94,8 @@ struct ViewportSlot
     cameraView presetView = cameraView::Free;
     bool editable = false;
     bool trackSelection = true;
-
-    float userZoom = 1.0f; // scroll-wheel multiplier, layered over auto-fit baseline
+    // scroll-wheel multiplier, layered over auto-fit baseline
+    float userZoom = 1.0f;
 
     RenderTexture2D target = { 0 };
     int targetWidth = 0;

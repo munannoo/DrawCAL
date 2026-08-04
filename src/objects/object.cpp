@@ -4,6 +4,7 @@
 std::vector<std::unique_ptr<shape>> objects;
 std::vector<shape*> selectedObjects;
 shape* activeObject;
+std::unique_ptr<shape> guidedTargetShape;
 
 // Class shape method definitions
 
@@ -96,9 +97,9 @@ float shape::getTransparency() const
 	return material.albedo.color.a / 255.0f;
 }
 
-void shape::drawSelectionWireframe(Color color) const
+void shape::drawSelectionWireframe(Color color, bool force) const
 {
-	if (!getSelected()) return;
+	if (!force && !getSelected()) return;
 	if (!R3D_IsMeshDataValid(meshData)) return;
 	if (meshData.vertexCount < 3) return;
 
@@ -117,8 +118,6 @@ void shape::drawSelectionWireframe(Color color) const
 
 	if (meshData.indices != nullptr && meshData.indexCount >= 3)
 	{
-		// Indexed mesh — walk the index buffer three at a time (assumes
-		// R3D_PRIMITIVE_TRIANGLES, which is what generateMeshData() sets).
 		for (int i = 0; i + 2 < meshData.indexCount; i += 3)
 		{
 			Vector3 a = meshData.vertices[meshData.indices[i + 0]].position;
@@ -129,7 +128,6 @@ void shape::drawSelectionWireframe(Color color) const
 	}
 	else
 	{
-		// Unindexed — vertices are already laid out in triangle order.
 		for (int i = 0; i + 2 < meshData.vertexCount; i += 3)
 		{
 			Vector3 a = meshData.vertices[i + 0].position;
@@ -328,7 +326,7 @@ void cube::drawShape() {
 	if (valid)
 	{
 		R3D_DrawMeshPro(mesh, *getMaterial(), MatrixCompose(transform.translation, transform.rotation, transform.scale));
-		//if (getSelected()) drawSelectionWireframe(RED);
+		if (getSelected()) drawSelectionWireframe(RED, false);
 	}
 }
 

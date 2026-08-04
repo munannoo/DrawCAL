@@ -4,6 +4,12 @@
 #include "objects/object.h"
 #include "ui/scenes/sceneManager.h"
 #include "ui/themes/themes.h"
+#include <memory>
+
+// Implemented in FreeDrawMode.cpp. It owns the "ghost" answer shape and the
+// pass/fail comparison used by guided mode's "Check Result" button, and
+// draws the ghost as a wireframe overlay when the learner toggles it on.
+extern void SetGuidedTarget(std::unique_ptr<shape> target);
 
 static Rectangle cubeBtn;
 static Rectangle sphereBtn;
@@ -19,6 +25,30 @@ enum GuidedButtonIcon
     BUTTON_ICON_IMPORT
 };
 
+//---------------------------------------------------------
+// Builds a randomized transform for the "answer" object the learner
+// needs to reproduce by transforming their own freshly-spawned shape.
+//---------------------------------------------------------
+static Transform GenerateGuidedTargetTransform()
+{
+    Transform target{};
+
+    target.translation = Vector3{
+        static_cast<float>(GetRandomValue(-30, 30)) / 10.0f,
+        static_cast<float>(GetRandomValue(0, 20)) / 10.0f,
+        static_cast<float>(GetRandomValue(-30, 30)) / 10.0f
+    };
+
+    const float yaw = DEG2RAD * static_cast<float>(GetRandomValue(0, 359));
+    const float pitch = DEG2RAD * static_cast<float>(GetRandomValue(-30, 30));
+    target.rotation = QuaternionFromEuler(pitch, yaw, 0.0f);
+
+    const float uniformScale = static_cast<float>(GetRandomValue(70, 180)) / 100.0f;
+    target.scale = Vector3{ uniformScale, uniformScale, uniformScale };
+
+    return target;
+}
+
 static void OpenWorkspaceWithObject(int objectType)
 {
     const Vector3 spawnPosition = { 0.0f, 0.0f, 0.0f };
@@ -26,12 +56,25 @@ static void OpenWorkspaceWithObject(int objectType)
     clearScene();
 
     shape* newObject = nullptr;
+    std::unique_ptr<shape> targetShape;
 
     switch (objectType)
     {
-    case 1: objects.push_back(std::make_unique<cube>(spawnPosition));     newObject = objects.back().get(); break;
-    case 2: objects.push_back(std::make_unique<sphere>(spawnPosition));   newObject = objects.back().get(); break;
-    case 3: objects.push_back(std::make_unique<cylinder>(spawnPosition)); newObject = objects.back().get(); break;
+    case 1:
+        objects.push_back(std::make_unique<cube>(spawnPosition));
+        newObject = objects.back().get();
+        targetShape = std::make_unique<cube>(spawnPosition);
+        break;
+    case 2:
+        objects.push_back(std::make_unique<sphere>(spawnPosition));
+        newObject = objects.back().get();
+        targetShape = std::make_unique<sphere>(spawnPosition);
+        break;
+    case 3:
+        objects.push_back(std::make_unique<cylinder>(spawnPosition));
+        newObject = objects.back().get();
+        targetShape = std::make_unique<cylinder>(spawnPosition);
+        break;
     default:
         TraceLog(LOG_WARNING, "Guided mode: object type %d not yet implemented", objectType);
         return;
@@ -42,6 +85,16 @@ static void OpenWorkspaceWithObject(int objectType)
 
     if (newObject != nullptr)
         selectObjects(newObject, false);
+
+    // The target is the "answer" shape the learner must match by transforming
+    // their own object. It's never pushed into `objects`, so it stays out of
+    // selection, the workspace list, and dimension overlays.
+    if (targetShape)
+    {
+        targetShape->setTransform(GenerateGuidedTargetTransform());
+		targetShape->setTransparency(0.5f);
+        SetGuidedTarget(std::move(targetShape));
+    }
 
     SetGuidedWorkspace(true);
     sceneManagerChangeScene(learnSceneId::LEARN_FREEDRAW);
@@ -148,9 +201,9 @@ static void DrawImportIcon(Rectangle r)
 // Draw a custom rounded button
 //---------------------------------------------------------
 static void DrawRoundedButton(Rectangle bounds,
-                              Color color,
-                              const char* text,
-                              GuidedButtonIcon icon)
+    Color color,
+    const char* text,
+    GuidedButtonIcon icon)
 {
     bool hovered = CheckCollisionPointRec(GetMousePosition(), bounds);
 
@@ -165,8 +218,8 @@ static void DrawRoundedButton(Rectangle bounds,
     }
 
     Color drawColor = hovered
-                        ? Fade(color, 0.85f)
-                        : color;
+        ? Fade(color, 0.85f)
+        : color;
 
     DrawRectangleRounded(drawBounds, 0.20f, 8, drawColor);
 
@@ -177,7 +230,7 @@ static void DrawRoundedButton(Rectangle bounds,
         GetColor(GuiGetStyle(DEFAULT, BORDER_COLOR_NORMAL)));
 
     switch (icon)
-{
+    {
     case BUTTON_ICON_CUBE:
         DrawCubeIcon(drawBounds);
         break;
@@ -193,7 +246,7 @@ static void DrawRoundedButton(Rectangle bounds,
     case BUTTON_ICON_IMPORT:
         DrawImportIcon(drawBounds);
         break;
-}
+    }
 
     const int fontSize = 22;
 
@@ -268,6 +321,9 @@ void GuidedModeUpdate()
     if (CheckCollisionPointRec(GetMousePosition(), importBtn) &&
         IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
+        // No scripted "answer" exists for an arbitrary imported scene, so
+        // clear any leftover target from a previous guided exercise.
+        SetGuidedTarget(nullptr);
         loadScene();
         SetGuidedWorkspace(true);
         sceneManagerChangeScene(learnSceneId::LEARN_FREEDRAW);
@@ -281,34 +337,34 @@ void GuidedModeUpdate()
 
 void GuidedModeDraw()
 {
-   ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
-   if (GuiButton(backBtn, "< Back")) pendingLearnScene = learnSceneId::LEARN_MENU;
+    ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+    if (GuiButton(backBtn, "< Back")) pendingLearnScene = learnSceneId::LEARN_MENU;
 
     const char* title = "Guided Mode";
 
     Vector2 titleSize = MeasureThemeText(title, 40.0f);
     DrawThemeText(title, (GetScreenWidth() - titleSize.x) / 2.0f, 80.0f, 40.0f,
-                  GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+        GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
     DrawRoundedButton(cubeBtn,
-                  Color{52,152,219,255},
-                  "Cube",
-                  BUTTON_ICON_CUBE);
+        Color{ 52,152,219,255 },
+        "Cube",
+        BUTTON_ICON_CUBE);
 
     DrawRoundedButton(sphereBtn,
-                  Color{46,204,113,255},
-                  "Sphere",
-                  BUTTON_ICON_SPHERE);
+        Color{ 46,204,113,255 },
+        "Sphere",
+        BUTTON_ICON_SPHERE);
 
     DrawRoundedButton(cylinderBtn,
-                  Color{230,126,34,255},
-                  "Cylinder",
-                  BUTTON_ICON_CYLINDER);
+        Color{ 230,126,34,255 },
+        "Cylinder",
+        BUTTON_ICON_CYLINDER);
 
     DrawRoundedButton(importBtn,
-                  Color{155,89,182,255},
-                  "Import",
-                  BUTTON_ICON_IMPORT);
+        Color{ 155,89,182,255 },
+        "Import",
+        BUTTON_ICON_IMPORT);
 }
 
 void GuidedModeUnload()

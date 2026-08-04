@@ -48,4 +48,5 @@ void freeDrawUnload();
 
 // Guided sessions use the editor without the object-creation context menu.
 void SetGuidedWorkspace(bool guided);
+void drawGuidedGhostTarget();
 #endif // FreeDrawMode_H

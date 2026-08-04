@@ -3,7 +3,7 @@
 
 #include "raylib.h"
 
-void contextMenu(bool& mouseButtonPressed, Camera3D& camera);
+void contextMenu(bool& mouseButtonPressed, Camera3D& camera, bool guidedRestricted = false);
 
 enum {
     STATE_BASE = 0,

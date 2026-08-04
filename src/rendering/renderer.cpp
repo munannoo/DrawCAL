@@ -4,6 +4,7 @@
 #include "objects/object.h"
 #include "features/shadings/lighting.h"
 #include <r3d.h>
+#include "features/learning/FreeDrawMode.h"
 
 Shader gridShader;
 Model gridPlane;
@@ -110,6 +111,7 @@ static void renderShapes()
     {
         obj->drawShape();
     }
+    drawGuidedGhostTarget();
 }
 
 static void renderSelectionWireframes()

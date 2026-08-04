@@ -20,16 +20,13 @@ static int scrollIndex = -1;
 static int subScrollIndex = -1;
 static int state = STATE_BASE;
 
-void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
+void contextMenu(bool& mouseButtonPressed, Camera3D& camera, bool guidedRestricted)
 {
-
-
     const char** submenuText = NULL;
     int subMenuSize = 0;
 
     Rectangle menuRec = { 0, 0, 125, 180 };
 
-    // Large ground plane used to convert the right-click ray into a world position.
     float planeSize = 10000.0f;
     Vector3 p1 = { -planeSize, 0.0f, -planeSize };
     Vector3 p2 = { planeSize, 0.0f, -planeSize };
@@ -41,7 +38,7 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
         mouseButtonPressed = true;
 
         clickPos = GetMousePosition();
-        Ray ray = GetScreenToWorldRay(clickPos, camera); // creating an object ray from raylib, that will project a ray from the camera to the coordinates to get a #D position
+        Ray ray = GetScreenToWorldRay(clickPos, camera);
         RayCollision collision = GetRayCollisionQuad(ray, p1, p2, p3, p4);
 
         if (collision.hit)
@@ -57,44 +54,50 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
     static const char* menuDeleteObject = "Delete Object";
     static const char* menuAddMaterial = "Add Material";
 
-    static const char* rootMenu[] = {
-        menuInsertMesh,
-        menuObjectEditing,
-        menuDeleteObject,
-        menuAddMaterial
+    enum rootMenuIndex
+    {
+        Menu_InsertMesh = 0,
+        Menu_ObjectEditing,
+        Menu_DeleteObject,
+        Menu_AddMaterial
     };
+
+    // Full root menu, with a parallel array of logical ids. Building both
+    // lets us filter the visible labels (guided mode) without breaking the
+    // "which entry is this" checks below — those now look up rootMenuIds[]
+    // instead of assuming a fixed array position.
+    static const char* fullRootMenu[] = { menuInsertMesh, menuObjectEditing, menuDeleteObject, menuAddMaterial };
+    static const rootMenuIndex fullRootMenuIds[] = { Menu_InsertMesh, Menu_ObjectEditing, Menu_DeleteObject, Menu_AddMaterial };
+
+    static const char* restrictedRootMenu[] = { menuInsertMesh, menuAddMaterial };
+    static const rootMenuIndex restrictedRootMenuIds[] = { Menu_InsertMesh, Menu_AddMaterial };
+
+    const char** rootMenu = guidedRestricted ? restrictedRootMenu : fullRootMenu;
+    const rootMenuIndex* rootMenuIds = guidedRestricted ? restrictedRootMenuIds : fullRootMenuIds;
+    const int rootMenuSize = guidedRestricted
+        ? (sizeof(restrictedRootMenu) / sizeof(restrictedRootMenu[0]))
+        : (sizeof(fullRootMenu) / sizeof(fullRootMenu[0]));
 
     static const char* addCube = "Insert Cube";
     static const char* addSphere = "Insert Sphere";
     static const char* addCylinder = "Insert Cylinder";
     static const char* addPointLight = "Insert Point Light";
 
-    static const char* addMesh[] = {
-        addCube,
-        addSphere,
-        addCylinder,
-        addPointLight
-    };
+    static const char* fullAddMesh[] = { addCube, addSphere, addCylinder, addPointLight };
+    static const char* restrictedAddMesh[] = { addPointLight }; // guided mode: light only, no new geometry
 
-	static const char* addConcrete = "Add Concrete";
-	static const char* addWood = "Add Wood";
-	static const char* addPlastic = "Add Plastic";
-	static const char* addCobblestone = "Add Cobblestone";
+    static const char* addConcrete = "Add Concrete";
+    static const char* addWood = "Add Wood";
+    static const char* addPlastic = "Add Plastic";
+    static const char* addCobblestone = "Add Cobblestone";
     static const char* addBrick = "Add Brick";
     static const char* addTiles = "Add Tiles";
     static const char* addMetal = "Add Metal";
-    static const char* addMarble= "Add Marble";
+    static const char* addMarble = "Add Marble";
     static const char* addAsphalt = "Add Asphalt";
 
     static const char* addMaterial[] = {
-		addConcrete, addWood, addPlastic, addCobblestone, addBrick, addTiles, addMetal, addMarble, addAsphalt
-    };
-    enum rootMenuIndex
-    {
-        Menu_InsertMesh = 0,
-        Menu_ObjectEditing,
-        Menu_DeleteObject,
-		Menu_AddMaterial
+        addConcrete, addWood, addPlastic, addCobblestone, addBrick, addTiles, addMetal, addMarble, addAsphalt
     };
 
     if (mouseButtonPressed)
@@ -105,11 +108,9 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
 
     const int itemHeight = GuiGetStyle(LISTVIEW, LIST_ITEMS_HEIGHT) + GuiGetStyle(LISTVIEW, LIST_ITEMS_SPACING);
 
-    const int rootMenuSize = sizeof(rootMenu) / sizeof(rootMenu[0]);
-
     float rootTextWidth = 0.0f;
-    for (const char* item : rootMenu)
-        rootTextWidth = std::max(rootTextWidth, MeasureThemeText(item, static_cast<float>(GuiGetStyle(DEFAULT, TEXT_SIZE))).x);
+    for (int i = 0; i < rootMenuSize; ++i)
+        rootTextWidth = std::max(rootTextWidth, MeasureThemeText(rootMenu[i], static_cast<float>(GuiGetStyle(DEFAULT, TEXT_SIZE))).x);
 
     menuRec.width = std::max(165.0f, rootTextWidth + 36.0f);
     menuRec.height = static_cast<float>(itemHeight * rootMenuSize + 10);
@@ -126,7 +127,6 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
 
         if (focused >= 0 && focused < rootMenuSize)
         {
-            //mainFocused = focused;
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && focused >= 0 && focused < rootMenuSize) {
                 mainActive = focused;
             }
@@ -135,13 +135,15 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
             {
                 TraceLog(LOG_INFO, TextFormat("CLICKED >>> %s", rootMenu[focused]));
 
-                if (focused == Menu_ObjectEditing)
+                rootMenuIndex focusedId = rootMenuIds[focused];
+
+                if (focusedId == Menu_ObjectEditing)
                 {
                     state = STATE_BASE;
                     mainActive = subActive = -1;
                     mouseButtonPressed = false;
                 }
-                else if (focused == Menu_DeleteObject)
+                else if (focusedId == Menu_DeleteObject)
                 {
                     deleteObjects();
                     state = STATE_BASE;
@@ -151,13 +153,17 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
             }
         }
 
-        if (mainActive == Menu_InsertMesh)
+        rootMenuIndex activeId = (mainActive >= 0 && mainActive < rootMenuSize) ? rootMenuIds[mainActive] : Menu_InsertMesh;
+
+        if (mainActive >= 0 && activeId == Menu_InsertMesh)
         {
-            submenuText = addMesh;
+            submenuText = guidedRestricted ? restrictedAddMesh : fullAddMesh;
             state = STATE_SHOW_SUBMENU;
-            subMenuSize = sizeof(addMesh) / sizeof(addMesh[0]);
+            subMenuSize = guidedRestricted
+                ? (sizeof(restrictedAddMesh) / sizeof(restrictedAddMesh[0]))
+                : (sizeof(fullAddMesh) / sizeof(fullAddMesh[0]));
         }
-        if (mainActive == Menu_AddMaterial)
+        if (mainActive >= 0 && activeId == Menu_AddMaterial)
         {
             submenuText = addMaterial;
             state = STATE_SHOW_SUBMENU;
@@ -170,7 +176,7 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
     {
         float submenuTextWidth = 0.0f;
         for (int i = 0; i < subMenuSize; ++i)
-            submenuTextWidth = std::max(submenuTextWidth, MeasureThemeText(submenuText[i],static_cast<float>(GuiGetStyle(DEFAULT, TEXT_SIZE))).x);
+            submenuTextWidth = std::max(submenuTextWidth, MeasureThemeText(submenuText[i], static_cast<float>(GuiGetStyle(DEFAULT, TEXT_SIZE))).x);
         const float submenuWidth = std::max(165.0f, submenuTextWidth + 36.0f);
         float submenuX = menuRec.x + menuRec.width + 2.0f;
         if (submenuX + submenuWidth > GetScreenWidth() - 4.0f) submenuX = menuRec.x - submenuWidth - 2.0f;
@@ -179,7 +185,6 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
         bounds.y = std::clamp(bounds.y, 4.0f, std::max(4.0f, GetScreenHeight() - bounds.height - 4.0f));
 
         int focused = -1;
-		// GuiListViewEx is supposed to return the index of the selected item, but it seems to return 0 atm, so removed the assignment from return value and just used pointer assignment
         GuiListViewEx(bounds, submenuText, subMenuSize, &subScrollIndex, &subActive, &focused);
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && focused >= 0 && focused < subMenuSize)
@@ -189,13 +194,12 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
 
             if (CheckCollisionPointRec(mousePosition, itemRect))
             {
-                if (mainActive == Menu_InsertMesh )
-                //if (strcmp(rootMenu[mainActive], "Insert Mesh") == 0)
+                rootMenuIndex activeId = (mainActive >= 0 && mainActive < rootMenuSize) ? rootMenuIds[mainActive] : Menu_InsertMesh;
+
+                if (activeId == Menu_InsertMesh)
                 {
                     if (strcmp(submenuText[focused], "Insert Cube") == 0)
                     {
-                        TraceLog(LOG_INFO, "Old material:");
-
                         objects.push_back(std::make_unique<cube>(objPosn));
                     }
                     else if (strcmp(submenuText[focused], "Insert Sphere") == 0)
@@ -210,80 +214,44 @@ void contextMenu(bool& mouseButtonPressed, Camera3D& camera)
                     {
                         lights.push_back(std::make_unique<Light>(objPosn));
                     }
-                } else
-                if (strcmp(rootMenu[mainActive], "Add Material") == 0)
+                }
+                else if (activeId == Menu_AddMaterial)
                 {
-                    TraceLog(LOG_INFO,
-                        "mainActive=%d, focused=%d",
-                        mainActive,
-                        focused
-                    );
                     if (strcmp(submenuText[focused], "Add Concrete") == 0)
                     {
-                        TraceLog(LOG_INFO, "outside selected  Old material:");
-
-                        for (shape* object : selectedObjects)
-                        {
-                            TraceLog(LOG_INFO, "Old material:");
-
-                            object->applyMaterial(MATERIAL_CONCRETE);
-                        }
+                        for (shape* object : selectedObjects) object->applyMaterial(MATERIAL_CONCRETE);
                     }
                     else if (strcmp(submenuText[focused], "Add Wood") == 0)
                     {
-                        for (shape* object : selectedObjects)
-                        {
-                            object->applyMaterial(MATERIAL_WOOD);
-                        }
+                        for (shape* object : selectedObjects) object->applyMaterial(MATERIAL_WOOD);
                     }
                     else if (strcmp(submenuText[focused], "Add Plastic") == 0)
                     {
-                        for (shape* object : selectedObjects)
-                        {
-                            object->applyMaterial(MATERIAL_PLASTIC);
-                        }
+                        for (shape* object : selectedObjects) object->applyMaterial(MATERIAL_PLASTIC);
                     }
                     else if (strcmp(submenuText[focused], "Add Cobblestone") == 0)
                     {
-                        for (shape* object : selectedObjects)
-                        {
-                            object->applyMaterial(MATERIAL_COBBLESTONE);
-                        }
+                        for (shape* object : selectedObjects) object->applyMaterial(MATERIAL_COBBLESTONE);
                     }
                     else if (strcmp(submenuText[focused], "Add Tiles") == 0)
                     {
-                        for (shape* object : selectedObjects)
-                        {
-                            object->applyMaterial(MATERIAL_TILES);
-                        }
+                        for (shape* object : selectedObjects) object->applyMaterial(MATERIAL_TILES);
                     }
                     else if (strcmp(submenuText[focused], "Add Metal") == 0)
                     {
-                        for (shape* object : selectedObjects)
-                        {
-                            object->applyMaterial(MATERIAL_METAL);
-                        }
+                        for (shape* object : selectedObjects) object->applyMaterial(MATERIAL_METAL);
                     }
                     else if (strcmp(submenuText[focused], "Add Marble") == 0)
                     {
-                        for (shape* object : selectedObjects)
-                        {
-                            object->applyMaterial(MATERIAL_MARBLE);
-                        }
+                        for (shape* object : selectedObjects) object->applyMaterial(MATERIAL_MARBLE);
                     }
                     else if (strcmp(submenuText[focused], "Add Asphalt") == 0)
                     {
-                        for (shape* object : selectedObjects)
-                        {
-                            object->applyMaterial(MATERIAL_ASPHALT);
-                        }
+                        for (shape* object : selectedObjects) object->applyMaterial(MATERIAL_ASPHALT);
                     }
                     else if (strcmp(submenuText[focused], "Add Brick") == 0)
                     {
-                        for (shape* object : selectedObjects)
-                        {
-                            object->applyMaterial(MATERIAL_BRICK);
-                        }
+                        for (shape* object : selectedObjects) object->applyMaterial(MATERIAL_BRICK);
                     }
                 }
             }

@@ -136,7 +136,7 @@ public:
 		return meshData.indexCount;
 	}
 
-	void shape::drawSelectionWireframe(Color color) const;
+	void drawSelectionWireframe(Color color, bool force = false) const;
 
 	unsigned int getId() const
 	{
@@ -287,4 +287,6 @@ extern std::vector<shape*> selectedObjects;
 // Active object pointer, points to the last selected object
 // use for entering edit mode, expanding split screen for one specific object, etc.
 extern shape* activeObject;
+extern std::unique_ptr<shape> guidedTargetShape;
+
 #endif // object_h
